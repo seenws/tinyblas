@@ -20,5 +20,5 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-double  tinyblas_i64ddot   (int64_t n, const double *x, uint64_t incx, const double *y, uint64_t incy);
+double  tinyblas_i64ddot   (int64_t n, const double *x, int64_t incx, const double *y, int64_t incy);
 
