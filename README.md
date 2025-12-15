@@ -20,6 +20,8 @@ This is meant as an educational BLAS-inspired library that does NOT include:
 ## Implemented:
 0.0.1 Work in progress
 - ddot (32-bit)
+- sdot (32-bit)
+- dsdot (32-bit)
 
 ## references
 - https://www.netlib.org/blas/blas.pdf
