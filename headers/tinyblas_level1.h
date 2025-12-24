@@ -20,6 +20,14 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-double  tinyblas_i32ddot   (int32_t n, const double *dx, int32_t incx, const double *dy, int32_t incy);
-float   tinyblas_i32sdot   (int32_t n, const float  *dx, int32_t incx, const float  *dy, int32_t incy);
-double  tinyblas_i32dsdot  (int32_t n, const float  *dx, int32_t incx, const float  *dy, int32_t incy);
+#ifndef TINYBLAS_LEVEL_1_H_
+#define TINYBLAS_LEVEL_1_H_
+
+#include <complex.h>
+
+double          tinyblas_ddot   (int32_t n, const double         *dx, int32_t incx, const double         *dy, int32_t incy);
+float           tinyblas_sdot   (int32_t n, const float          *dx, int32_t incx, const float          *dy, int32_t incy);
+double          tinyblas_dsdot  (int32_t n, const float          *dx, int32_t incx, const float          *dy, int32_t incy);
+float complex   tinyblas_cdotu  (int32_t n, const float complex  *zx, int32_t incx, const float complex  *zy, int32_t incy);
+
+#endif

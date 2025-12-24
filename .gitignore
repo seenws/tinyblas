@@ -1,1 +1,36 @@
+# Build artifacts
+/build/
+
+# Object files
+*.o
+*.obj
+
+# Static and shared libraries
+*.a
+*.so
+*.dylib
+*.dll
+
+# Test binaries (in case any escape build/)
+test_*
 *.out
+
+# Coverage / profiling
+*.gcno
+*.gcda
+*.gcov
+gmon.out
+
+# Debuggers
+*.dSYM/
+
+# Editors
+*.swp
+*.swo
+*~
+.DS_Store
+.vscode/
+.idea/
+
+# Compilation databases
+compile_commands.json

@@ -22,6 +22,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <complex.h>
 
 #include "../headers/tinyblas_level1.h"
 #include "../headers/tinyblas_common.h"
@@ -30,11 +31,8 @@
  *  Dot product with double precision arguments and accumulator
  */
 double
-tinyblas_i32ddot(
-        int32_t n,
-        const double *dx, int32_t incx,
-        const double *dy, int32_t incy
-) {
+tinyblas_ddot(int32_t n, const double *dx, int32_t incx, const double *dy, int32_t incy)
+{
     if (n <= 0) return 0.0;
 
     double dot = 0.0;
@@ -43,9 +41,9 @@ tinyblas_i32ddot(
     if (incy < 0) dy += (1 - n) * incy;
 
     if (incx == 1 && incy == 1) {
-        int32_t n8 = n & ~7;
+        int32_t n8 = n - (n % 7);
 
-        for (int32_t i = 0; i < n16; i += 16) {
+        for (int32_t i = 0; i < n8; i += 16) {
             dot += dx[i + 0]     * dy[i + 0]
                  + dx[i + 1]     * dy[i + 1]
                  + dx[i + 2]     * dy[i + 2]
@@ -53,11 +51,11 @@ tinyblas_i32ddot(
                  + dx[i + 4]     * dy[i + 4]
                  + dx[i + 5]     * dy[i + 5]
                  + dx[i + 6]     * dy[i + 6]
-                 + dx[i + 7]     * dy[i + 7]
+                 + dx[i + 7]     * dy[i + 7];
         }
 
         // tail loop
-        for (int32_t i = n16; i < n; ++i) {
+        for (int32_t i = n8; i < n; ++i) {
             dot += dx[i] * dy[i];
         }
 
@@ -80,11 +78,8 @@ tinyblas_i32ddot(
  *  Dot product with single precision arguments and accumulator
  */
 float
-tinyblas_i32sdot(
-        int32_t n,
-        const float *dx, int32_t incx,
-        const float *dy, int32_t incy
-) {
+tinyblas_sdot(int32_t n, const float *dx, int32_t incx, const float *dy, int32_t incy)
+{
     if (n <= 0) return 0.0;
 
     float dot = 0.0f;
@@ -93,7 +88,7 @@ tinyblas_i32sdot(
     if (incy < 0) dy += (1 - n) * incy;
 
     if (incx == 1 && incy == 1) {
-        int32_t n16 = n & ~15;
+        int32_t n16 = n - (n % 15);
 
         for (int32_t i = 0; i < n16; i += 16) {
             dot += dx[i + 0]     * dy[i + 0]
@@ -134,29 +129,24 @@ tinyblas_i32sdot(
     return dot;
 }
 
-/*
- *  Dot product with single precision arguments and double precision accumulator
+/* Dot product with single precision arguments and double precision accumulator
+ * @n: The number of elements present in vectors @dx and @dy. dsdot expects two equal length vectors,
+ * if the two vectors are of non-equal length, behavior is undefined.
+ *
+ * @incx, @incy: 
+ *
+ * @return: returns the dot product
+ *
  */
 double
-tinyblas_i32dsdot(
-        int32_t n,
-        const float *dx, int32_t incx,
-        const float *dy, int32_t incy
-) {
+tinyblas_dsdot(int32_t n, const float *dx, int32_t incx, const float *dy, int32_t incy)
+{
     if (n <= 0) return 0.0;
 
     double dot = 0.0;
 
     if (incx < 0) dx += (1 - n) * incx;
     if (incy < 0) dy += (1 - n) * incy;
-
-        // tail loop
-        for (int32_t i = n16; i < n; ++i) {
-            dot += (double)dx[i] * (double)dy[i];
-        }
-
-        return dot;
-    }
 
     int32_t ix = 0;
     int32_t iy = 0;
@@ -170,3 +160,10 @@ tinyblas_i32dsdot(
     return dot;
 }
 
+float complex
+tinyblas_cdotu(int32_t n, const float complex *zx, int32_t incx, const float complex *zy, int32_t incy)
+{
+    float complex dot = 0.0f + 0.0f * I;
+
+    return dot;
+}

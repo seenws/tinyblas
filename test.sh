@@ -6,15 +6,30 @@ CC=${CC:-cc}
 CFLAGS="-std=iso9899:1999 -Wall -Wextra -pedantic -Wshadow -Wcast-qual -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes -Wconversion"
 INCLUDE="-Iinclude"
 
-echo "[build] tinyblas ddot test"
+BUILD_DIR="build"
 
-$CC $CFLAGS $INCLUDE \
-    src/tinyblas_level1.c \
-    tests/test_ddot.c \
-    -lm \
-    -o test_ddot
+mkdir -p "$BUILD_DIR"
 
-echo "[run] ddot unit tests"
-./test_ddot
+echo "[build] tinyblas tests"
+
+for test_src in tests/*.c; do
+    test_name=$(basename "$test_src" .c)
+    test_bin="$BUILD_DIR/$test_name"
+
+    echo "[build] $test_name"
+
+    $CC $CFLAGS $INCLUDE \
+        src/tinyblas_level1.c \
+        "$test_src" \
+        -lm \
+        -o "$test_bin"
+
+    echo "[run] $test_name"
+    "$test_bin"
+
+    echo "[ok] $test_name passed"
+    echo
+done
 
 echo "[ok] all tests passed"
+
