@@ -8,6 +8,10 @@ INCLUDE="-Iinclude"
 
 BUILD_DIR="build"
 
+GREEN='\033[0;32m'
+RED='\033[0;31m'
+RESET='\033[0m'
+
 mkdir -p "$BUILD_DIR"
 
 echo "[build] tinyblas tests"
@@ -25,11 +29,16 @@ for test_src in tests/*.c; do
         -o "$test_bin"
 
     echo "[run] $test_name"
-    "$test_bin"
 
-    echo "[ok] $test_name passed"
+    if "$test_bin"; then
+        echo -e "${GREEN}[Pass]${RESET} $test_name"
+    else
+        echo -e "${RED}[Fail]${RESET} $test_name"
+        exit 1
+    fi
+
     echo
 done
 
-echo "[ok] all tests passed"
+echo -e "${GREEN}[PASS]${RESET} all tests passed"
 

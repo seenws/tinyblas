@@ -25,9 +25,9 @@
 
 #include <complex.h>
 
-double          tinyblas_ddot   (int32_t n, const double         *dx, int32_t incx, const double         *dy, int32_t incy);
-float           tinyblas_sdot   (int32_t n, const float          *dx, int32_t incx, const float          *dy, int32_t incy);
-double          tinyblas_dsdot  (int32_t n, const float          *dx, int32_t incx, const float          *dy, int32_t incy);
-float complex   tinyblas_cdotu  (int32_t n, const float complex  *zx, int32_t incx, const float complex  *zy, int32_t incy);
+double          tinyblas_ddot   (int32_t n, const double        *__restrict dx, int32_t incx, const double          *__restrict dy, int32_t incy);
+float           tinyblas_sdot   (int32_t n, const float         *__restrict dx, int32_t incx, const float           *__restrict dy, int32_t incy);
+double          tinyblas_dsdot  (int32_t n, const float         *__restrict dx, int32_t incx, const float           *__restrict dy, int32_t incy);
+float complex   tinyblas_cdotu  (int32_t n, const float complex *__restrict zx, int32_t incx, const float complex   *__restrict zy, int32_t incy);
 
 #endif
