@@ -18,10 +18,22 @@ This is meant as an educational BLAS-inspired library that does NOT include:
 - Interop with other languages
 
 ## Implemented:
-0.0.1 Work in progress
-- ddot (32-bit)
-- sdot (32-bit)
-- dsdot (32-bit)
+0.0.1 Work in progress — all of level 1 except the modified Givens pair
+(`rotm`/`rotmg`), which is exactly the historical semantics this library skips.
+
+- dot: `ddot` `sdot` `dsdot` `sdsdot` `cdotu` `cdotc` `zdotu` `zdotc`
+- norms: `snrm2` `dnrm2` `scnrm2` `dznrm2`
+- abs sums: `sasum` `dasum` `scasum` `dzasum`
+- max index: `isamax` `idamax` `icamax` `izamax`
+- vector ops: `?swap` `?copy` `?axpy` `?scal` (+ `csscal` `zdscal`)
+- rotations: `?rotg` `srot` `drot` `csrot` `zdrot`
+
+Where the C API departs from Fortran BLAS on purpose:
+
+- `i?amax` returns a **0-based** index, and `-1` for an empty vector
+- `?rotg` takes `a` and `b` by value and returns `c`, `s`, `r`; the packed `z`
+  output is gone
+- every vector argument is `restrict`: x and y must not overlap
 
 ## references
 - https://www.netlib.org/blas/blas.pdf

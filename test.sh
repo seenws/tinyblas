@@ -4,6 +4,9 @@ set -euo pipefail
 
 CC=${CC:-cc}
 CFLAGS="-std=iso9899:1999 -Wall -Wextra -pedantic -Wshadow -Wcast-qual -Wpointer-arith -Wstrict-prototypes -Wmissing-prototypes -Wconversion"
+# Reduction vectorization needs reassociation. Narrower than -ffast-math on
+# purpose: NaN/Inf still propagate, which a BLAS caller is entitled to expect.
+CFLAGS="$CFLAGS -O3 -march=native -fassociative-math -fno-signed-zeros -fno-trapping-math"
 INCLUDE="-Iinclude"
 
 BUILD_DIR="build"
