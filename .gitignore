@@ -11,8 +11,8 @@
 *.dylib
 *.dll
 
-# Test binaries (in case any escape build/)
-test_*
+# Test binaries (in case any escape build/). Anchored: tests/*.c must stay tracked.
+/test_*
 *.out
 
 # Coverage / profiling

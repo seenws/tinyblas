@@ -24,11 +24,11 @@
 #include <assert.h>
 #include <math.h>
 
-#include "../headers/tinyblas_level1.h"
-#include "../headers/tinyblas_common.h"
+#include "tinyblas_level1.h"
+#include "tinyblas_common.h"
 
 /* The unit-stride branch exists so the compiler sees a contiguous reduction and
- * vectorizes it; see the -O3 -fassociative-math flags in test.sh. */
+ * vectorizes it; see the -O3 -fassociative-math flags in the Makefile. */
 
 /*
  *  Double-precision dot product: ddot
