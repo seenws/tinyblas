@@ -60,14 +60,14 @@ vidx(int32_t inc, int32_t len, int32_t i)
  *  matrix-vector product, so they can share a single reference.
  */
 static void
-build_gen(int32_t m, int32_t n, int32_t lda, enum tinyblas_trans trans)
+build_gen(int32_t m, int32_t n, int32_t lda, enum tinyblas_op trans)
 {
-    int32_t rows = (trans == TINYBLAS_NO_TRANS) ? m : n;
-    int32_t cols = (trans == TINYBLAS_NO_TRANS) ? n : m;
+    int32_t rows = (trans == TINYBLAS_NONE) ? m : n;
+    int32_t cols = (trans == TINYBLAS_NONE) ? n : m;
 
     for (int32_t i = 0; i < rows; ++i) {
         for (int32_t j = 0; j < cols; ++j) {
-            double complex v = (trans == TINYBLAS_NO_TRANS)
+            double complex v = (trans == TINYBLAS_NONE)
                              ? ma[(ptrdiff_t)i * lda + j]
                              : ma[(ptrdiff_t)j * lda + i];
 
@@ -97,12 +97,12 @@ build_sym(int32_t n, int32_t lda, enum tinyblas_uplo uplo, int herm)
 
 static void
 build_tri(int32_t n, int32_t lda, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag)
+        enum tinyblas_op trans, enum tinyblas_diag diag)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             double complex v = 0.0;
 
@@ -173,7 +173,7 @@ cmp_vec(const char *name, int32_t len, double tol)
  *  trmv, which writes its result back over x rather than into y.
  */
 static int
-check_matvec(char kind, enum tinyblas_trans trans, enum tinyblas_uplo uplo,
+check_matvec(char kind, enum tinyblas_op trans, enum tinyblas_uplo uplo,
         enum tinyblas_diag diag, int32_t m, int32_t n, int32_t lda,
         double complex alpha, double complex beta,
         int32_t incx, int32_t incy, int cplx)
@@ -183,8 +183,8 @@ check_matvec(char kind, enum tinyblas_trans trans, enum tinyblas_uplo uplo,
     double tol;
 
     if (kind == 'g') {
-        rows = (trans == TINYBLAS_NO_TRANS) ? m : n;
-        cols = (trans == TINYBLAS_NO_TRANS) ? n : m;
+        rows = (trans == TINYBLAS_NONE) ? m : n;
+        cols = (trans == TINYBLAS_NONE) ? n : m;
     } else {
         rows = cols = n;
     }
@@ -308,7 +308,7 @@ check_matvec(char kind, enum tinyblas_trans trans, enum tinyblas_uplo uplo,
  *  original right-hand side. A wrong solve cannot survive its own residual.
  */
 static int
-check_trsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+check_trsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n, int32_t lda, int32_t incx, int cplx)
 {
     double tol = 64.0 * (double)n * DBL_EPSILON;
@@ -440,8 +440,8 @@ seed_vecs(int32_t lenx, int32_t leny)
 }
 
 int main(void) {
-    static const enum tinyblas_trans tr[3] = {
-        TINYBLAS_NO_TRANS, TINYBLAS_TRANS, TINYBLAS_CONJ_TRANS
+    static const enum tinyblas_op tr[3] = {
+        TINYBLAS_NONE, TINYBLAS_TRANS, TINYBLAS_CONJ_TRANS
     };
     static const enum tinyblas_uplo ul[2] = { TINYBLAS_UPPER, TINYBLAS_LOWER };
     static const enum tinyblas_diag dg[2] = { TINYBLAS_NON_UNIT, TINYBLAS_UNIT };
@@ -456,7 +456,7 @@ int main(void) {
         double y[2] = {10, 20};
 
         /* A*x = (6, 15); 2*A*x + 3*y = (42, 90) */
-        tinyblas_dgemv(TINYBLAS_NO_TRANS, 2, 3, 2.0, a, 3, x, 1, 3.0, y, 1);
+        tinyblas_dgemv(TINYBLAS_NONE, 2, 3, 2.0, a, 3, x, 1, 3.0, y, 1);
         CHECK(y[0], 42.0, 1e-12);
         CHECK(y[1], 90.0, 1e-12);
     }
@@ -476,13 +476,13 @@ int main(void) {
         double a[4] = {1, 2, 0, 3};
         double x[2] = {1, 1};
 
-        tinyblas_dtrmv(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, TINYBLAS_NON_UNIT,
+        tinyblas_dtrmv(TINYBLAS_UPPER, TINYBLAS_NONE, TINYBLAS_NON_UNIT,
                        2, a, 2, x, 1);
         CHECK(x[0], 3.0, 1e-12);
         CHECK(x[1], 3.0, 1e-12);
 
         /* and the solve undoes it */
-        tinyblas_dtrsv(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, TINYBLAS_NON_UNIT,
+        tinyblas_dtrsv(TINYBLAS_UPPER, TINYBLAS_NONE, TINYBLAS_NON_UNIT,
                        2, a, 2, x, 1);
         CHECK(x[0], 1.0, 1e-12);
         CHECK(x[1], 1.0, 1e-12);
@@ -492,7 +492,7 @@ int main(void) {
         double a[4] = {99, 2, 0, 99};
         double x[2] = {1, 1};
 
-        tinyblas_dtrmv(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, TINYBLAS_UNIT,
+        tinyblas_dtrmv(TINYBLAS_UPPER, TINYBLAS_NONE, TINYBLAS_UNIT,
                        2, a, 2, x, 1);
         CHECK(x[0], 3.0, 1e-12);   /* 1*1 + 2*1 */
         CHECK(x[1], 1.0, 1e-12);
@@ -557,15 +557,15 @@ int main(void) {
         int32_t n = dims[d];
 
         for (int32_t u = 0; u < 2; ++u) {
-            if (check_matvec('s', TINYBLAS_NO_TRANS, ul[u], TINYBLAS_NON_UNIT,
+            if (check_matvec('s', TINYBLAS_NONE, ul[u], TINYBLAS_NON_UNIT,
                              n, n, n, 0.7, -0.3, 1, 1, 0))
                 return 1;
 
-            if (check_matvec('s', TINYBLAS_NO_TRANS, ul[u], TINYBLAS_NON_UNIT,
+            if (check_matvec('s', TINYBLAS_NONE, ul[u], TINYBLAS_NON_UNIT,
                              n, n, n + 2, 0.7 + 0.3 * I, -0.3 + 0.5 * I, 1, 1, 1))
                 return 1;
 
-            if (check_matvec('s', TINYBLAS_NO_TRANS, ul[u], TINYBLAS_NON_UNIT,
+            if (check_matvec('s', TINYBLAS_NONE, ul[u], TINYBLAS_NON_UNIT,
                              n, n, n, 1.0, 0.0, -2, 3, 1))
                 return 1;
         }
@@ -770,19 +770,19 @@ int main(void) {
 
         /* beta == 0 must overwrite y, never read it */
         y[0] = y[1] = NAN;
-        tinyblas_dgemv(TINYBLAS_NO_TRANS, 2, 2, 1.0, a, 2, x, 1, 0.0, y, 1);
+        tinyblas_dgemv(TINYBLAS_NONE, 2, 2, 1.0, a, 2, x, 1, 0.0, y, 1);
         CHECK(isfinite(y[0]) ? 0.0 : 1.0, 0.0, 0.0);
         CHECK(y[0], 3.0, 1e-12);
 
         /* alpha == 0 leaves exactly beta*y and must not read A or x */
         y[0] = y[1] = 2.0;
-        tinyblas_dgemv(TINYBLAS_NO_TRANS, 2, 2, 0.0, NULL, 2, NULL, 1, 3.0, y, 1);
+        tinyblas_dgemv(TINYBLAS_NONE, 2, 2, 0.0, NULL, 2, NULL, 1, 3.0, y, 1);
         CHECK(y[0], 6.0, 0.0);
         CHECK(y[1], 6.0, 0.0);
 
         /* an empty problem touches nothing */
         y[0] = y[1] = 7.0;
-        tinyblas_dgemv(TINYBLAS_NO_TRANS, 0, 2, 1.0, a, 2, x, 1, 0.0, y, 1);
+        tinyblas_dgemv(TINYBLAS_NONE, 0, 2, 1.0, a, 2, x, 1, 0.0, y, 1);
         CHECK(y[0], 7.0, 0.0);
 
         /* alpha == 0 makes the rank updates no-ops */

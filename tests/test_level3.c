@@ -100,7 +100,7 @@ ref_gemm(int32_t m, int32_t n, int32_t k, double complex alpha,
 
 static int
 cmp_block(const char *name, int32_t m, int32_t n, int32_t k,
-        enum tinyblas_trans ta, enum tinyblas_trans tb, double tol)
+        enum tinyblas_op ta, enum tinyblas_op tb, double tol)
 {
     for (int32_t i = 0; i < m; ++i) {
         for (int32_t j = 0; j < n; ++j) {
@@ -134,15 +134,15 @@ cmp_block(const char *name, int32_t m, int32_t n, int32_t k,
  *  the logical extent turns the result NaN and fails the comparison.
  */
 static int
-check_gemm(enum tinyblas_trans ta, enum tinyblas_trans tb,
+check_gemm(enum tinyblas_op ta, enum tinyblas_op tb,
         int32_t m, int32_t n, int32_t k,
         double complex alpha, double complex beta,
         int32_t pada, int32_t padb, int32_t padc, int cplx)
 {
-    int32_t arows = (ta == TINYBLAS_NO_TRANS) ? m : k;
-    int32_t acols = (ta == TINYBLAS_NO_TRANS) ? k : m;
-    int32_t brows = (tb == TINYBLAS_NO_TRANS) ? k : n;
-    int32_t bcols = (tb == TINYBLAS_NO_TRANS) ? n : k;
+    int32_t arows = (ta == TINYBLAS_NONE) ? m : k;
+    int32_t acols = (ta == TINYBLAS_NONE) ? k : m;
+    int32_t brows = (tb == TINYBLAS_NONE) ? k : n;
+    int32_t bcols = (tb == TINYBLAS_NONE) ? n : k;
 
     int32_t lda = acols + pada;
     int32_t ldb = bcols + padb;
@@ -151,10 +151,10 @@ check_gemm(enum tinyblas_trans ta, enum tinyblas_trans tb,
     int conja = (ta == TINYBLAS_CONJ_TRANS);
     int conjb = (tb == TINYBLAS_CONJ_TRANS);
 
-    ptrdiff_t ars = (ta == TINYBLAS_NO_TRANS) ? (ptrdiff_t)lda : 1;
-    ptrdiff_t acs = (ta == TINYBLAS_NO_TRANS) ? 1 : (ptrdiff_t)lda;
-    ptrdiff_t brs = (tb == TINYBLAS_NO_TRANS) ? (ptrdiff_t)ldb : 1;
-    ptrdiff_t bcs = (tb == TINYBLAS_NO_TRANS) ? 1 : (ptrdiff_t)ldb;
+    ptrdiff_t ars = (ta == TINYBLAS_NONE) ? (ptrdiff_t)lda : 1;
+    ptrdiff_t acs = (ta == TINYBLAS_NONE) ? 1 : (ptrdiff_t)lda;
+    ptrdiff_t brs = (tb == TINYBLAS_NONE) ? (ptrdiff_t)ldb : 1;
+    ptrdiff_t bcs = (tb == TINYBLAS_NONE) ? 1 : (ptrdiff_t)ldb;
 
     double tol;
 
@@ -257,13 +257,13 @@ dense_sym(enum tinyblas_uplo uplo, int32_t na, int32_t lda, int herm)
 
 /* write op(A) out densely, zeros outside the triangle */
 static void
-dense_tri(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+dense_tri(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t na, int32_t lda)
 {
     for (int32_t i = 0; i < na; ++i) {
         for (int32_t j = 0; j < na; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             double complex v = 0.0;
 
@@ -452,11 +452,11 @@ check_symm(enum tinyblas_side side, enum tinyblas_uplo uplo, int herm,
  *  the symmetric and the hermitian forms.
  */
 static int
-check_syrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans, int rank2,
+check_syrk(enum tinyblas_uplo uplo, enum tinyblas_op trans, int rank2,
         int herm, int32_t n, int32_t k, double complex alpha,
         double complex beta, int cplx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     int32_t arows = notrans ? n : k;
     int32_t acols = notrans ? k : n;
     int32_t lda = acols, ldb = acols, ldc = n;
@@ -568,7 +568,7 @@ check_syrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans, int rank2,
  */
 static int
 check_trmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double complex alpha, int cplx)
 {
     int32_t na = (side == TINYBLAS_LEFT) ? m : n;
@@ -657,7 +657,7 @@ trsm_residual(const char *name, enum tinyblas_side side,
  */
 static int
 check_trsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double complex alpha, int cplx)
 {
     int32_t na = (side == TINYBLAS_LEFT) ? m : n;
@@ -710,8 +710,8 @@ check_trsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 }
 
 int main(void) {
-    static const enum tinyblas_trans tr[3] = {
-        TINYBLAS_NO_TRANS, TINYBLAS_TRANS, TINYBLAS_CONJ_TRANS
+    static const enum tinyblas_op tr[3] = {
+        TINYBLAS_NONE, TINYBLAS_TRANS, TINYBLAS_CONJ_TRANS
     };
 
     /* Every one of these is a non-multiple of 6, 8 or 16, which is where the
@@ -784,16 +784,16 @@ int main(void) {
         double dB[4] = {5.0, 6.0, 7.0, 8.0};
         double dC[4] = {0.0, 0.0, 0.0, 0.0};
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 2, 2, 2,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 2, 2, 2,
                        1.0, dA, 2, dB, 2, 0.0, dC, 2);
         CHECK(dC[0], 19.0, 1e-12);  CHECK(dC[1], 22.0, 1e-12);
         CHECK(dC[2], 43.0, 1e-12);  CHECK(dC[3], 50.0, 1e-12);
 
-        tinyblas_dgemm(TINYBLAS_TRANS, TINYBLAS_NO_TRANS, 2, 2, 2,
+        tinyblas_dgemm(TINYBLAS_TRANS, TINYBLAS_NONE, 2, 2, 2,
                        1.0, dA, 2, dB, 2, 0.0, dC, 2);
         CHECK(dC[0], 26.0, 1e-12);  CHECK(dC[3], 44.0, 1e-12);
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_TRANS, 2, 2, 2,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_TRANS, 2, 2, 2,
                        1.0, dA, 2, dB, 2, 0.0, dC, 2);
         CHECK(dC[0], 17.0, 1e-12);  CHECK(dC[3], 53.0, 1e-12);
     }
@@ -802,11 +802,11 @@ int main(void) {
         double complex zB[1] = {2.0 + 3.0 * I};
         double complex zC[1] = {0.0};
 
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 1, 1, 1,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, 1, 1, 1,
                        1.0, zA, 1, zB, 1, 0.0, zC, 1);
         CHECK_C(zC[0], -1.0, 5.0, 1e-12);
 
-        tinyblas_zgemm(TINYBLAS_CONJ_TRANS, TINYBLAS_NO_TRANS, 1, 1, 1,
+        tinyblas_zgemm(TINYBLAS_CONJ_TRANS, TINYBLAS_NONE, 1, 1, 1,
                        1.0, zA, 1, zB, 1, 0.0, zC, 1);
         CHECK_C(zC[0], 5.0, 1.0, 1e-12);
     }
@@ -847,23 +847,29 @@ int main(void) {
     for (int32_t d = 0; d < ndims; ++d) {
         int32_t s = dims[d];
 
-        if (check_gemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, s, s, s,
+        if (check_gemm(TINYBLAS_NONE, TINYBLAS_NONE, s, s, s,
                        0.7, -0.3, 0, 0, 0, 0))
             return 1;
 
-        if (check_gemm(TINYBLAS_TRANS, TINYBLAS_NO_TRANS, s, s, s,
+        if (check_gemm(TINYBLAS_TRANS, TINYBLAS_NONE, s, s, s,
                        1.0, 0.0, 2, 0, 4, 0))
             return 1;
     }
 
     /* k deeper than one KC panel, so the k loop runs more than once and beta
      * is applied on the first panel only */
-    if (check_gemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 8, 8, 300,
+    if (check_gemm(TINYBLAS_NONE, TINYBLAS_NONE, 8, 8, 300,
                    0.7 + 0.3 * I, -0.3 + 0.5 * I, 0, 0, 0, 1))
         return 1;
 
     if (check_gemm(TINYBLAS_TRANS, TINYBLAS_TRANS, 7, 9, 260,
                    0.7, -0.3, 0, 0, 0, 0))
+        return 1;
+
+    /* both operands conjugated and k deeper than one KC panel: the complex
+     * kernel folds the conjugate in while packing, so the two interact */
+    if (check_gemm(TINYBLAS_CONJ_TRANS, TINYBLAS_CONJ_TRANS, 9, 11, 300,
+                   0.7 + 0.3 * I, -0.3 + 0.5 * I, 0, 0, 0, 1))
         return 1;
 
     /* --- semantics ------------------------------------------------------ */
@@ -875,7 +881,7 @@ int main(void) {
         /* beta == 0 must overwrite C, never read it. A NaN C is legal input. */
         for (int32_t i = 0; i < 9; ++i) c[i] = NAN;
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 3, 3, 3,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 3, 3, 3,
                        1.0, a, 3, b, 3, 0.0, c, 3);
 
         for (int32_t i = 0; i < 9; ++i)
@@ -886,7 +892,7 @@ int main(void) {
         /* alpha == 0 leaves exactly beta * C, and must not read A or B */
         for (int32_t i = 0; i < 9; ++i) c[i] = 2.0;
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 3, 3, 3,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 3, 3, 3,
                        0.0, NULL, 3, NULL, 3, 3.0, c, 3);
 
         for (int32_t i = 0; i < 9; ++i) CHECK(c[i], 6.0, 0.0);
@@ -894,7 +900,7 @@ int main(void) {
         /* k == 0 still applies beta: C := beta*C, not a no-op */
         for (int32_t i = 0; i < 9; ++i) c[i] = 2.0;
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 3, 3, 0,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 3, 3, 0,
                        1.0, NULL, 1, NULL, 1, 3.0, c, 3);
 
         for (int32_t i = 0; i < 9; ++i) CHECK(c[i], 6.0, 0.0);
@@ -902,7 +908,7 @@ int main(void) {
         /* k == 0 with beta == 0 zeroes C rather than leaving it NaN */
         for (int32_t i = 0; i < 9; ++i) c[i] = NAN;
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 3, 3, 0,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 3, 3, 0,
                        1.0, NULL, 1, NULL, 1, 0.0, c, 3);
 
         for (int32_t i = 0; i < 9; ++i) CHECK(c[i], 0.0, 0.0);
@@ -910,9 +916,9 @@ int main(void) {
         /* m == 0 and n == 0 are genuine no-ops that touch nothing */
         for (int32_t i = 0; i < 9; ++i) c[i] = 5.0;
 
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 0, 3, 3,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 0, 3, 3,
                        1.0, a, 3, b, 3, 0.0, c, 3);
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, 3, 0, 3,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, 3, 0, 3,
                        1.0, a, 3, b, 3, 0.0, c, 3);
 
         for (int32_t i = 0; i < 9; ++i) CHECK(c[i], 5.0, 0.0);
@@ -973,8 +979,8 @@ int main(void) {
                         /* herk and her2k take NO_TRANS or CONJ_TRANS, and a
                          * real alpha on the rank-k form */
                         {
-                            enum tinyblas_trans ht = t ? TINYBLAS_CONJ_TRANS
-                                                       : TINYBLAS_NO_TRANS;
+                            enum tinyblas_op ht = t ? TINYBLAS_CONJ_TRANS
+                                                       : TINYBLAS_NONE;
 
                             if (check_syrk(ul[u], ht, 0, 1, p, q, 0.7, -0.3, x))
                                 return 1;
@@ -994,7 +1000,7 @@ int main(void) {
 
             for (int32_t i = 0; i < 9; ++i) c[i] = 5.0;
 
-            tinyblas_dsyrk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, 3, 1,
+            tinyblas_dsyrk(TINYBLAS_UPPER, TINYBLAS_NONE, 3, 1,
                            1.0, a, 1, 0.0, c, 3);
 
             CHECK(c[0], 1.0, 1e-12);    /* 1*1 */
@@ -1007,10 +1013,10 @@ int main(void) {
          * shape sweep stays under. These run several row blocks with a
          * partial one at the end, in both sweep directions. */
         for (int32_t x = 0; x < 2; ++x) {
-            if (check_trsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+            if (check_trsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                            TINYBLAS_NON_UNIT, 200, 3, 0.7, x)) return 1;
 
-            if (check_trsm(TINYBLAS_LEFT, TINYBLAS_LOWER, TINYBLAS_NO_TRANS,
+            if (check_trsm(TINYBLAS_LEFT, TINYBLAS_LOWER, TINYBLAS_NONE,
                            TINYBLAS_NON_UNIT, 140, 5, 0.7, x)) return 1;
 
             if (check_trsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_CONJ_TRANS,
@@ -1029,7 +1035,7 @@ int main(void) {
             double a[4] = {1, 2, 0, 3};
             double b[4] = {7, 7, 7, 7};
 
-            tinyblas_dtrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+            tinyblas_dtrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                            TINYBLAS_NON_UNIT, 2, 2, 0.0, a, 2, b, 2);
 
             for (int32_t i = 0; i < 4; ++i) CHECK(b[i], 0.0, 0.0);
@@ -1050,9 +1056,9 @@ int main(void) {
                 c4[i] = 7.0f + 3.0f * I;
             }
 
-            tinyblas_zherk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, 2, 2,
+            tinyblas_zherk(TINYBLAS_UPPER, TINYBLAS_NONE, 2, 2,
                            0.5, a2, 2, 0.25, c2, 2);
-            tinyblas_cherk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, 2, 2,
+            tinyblas_cherk(TINYBLAS_UPPER, TINYBLAS_NONE, 2, 2,
                            0.5f, a4, 2, 0.25f, c4, 2);
 
             CHECK(cimag(c2[0]), 0.0, 0.0);
@@ -1120,7 +1126,7 @@ int main(void) {
             /* the same for a rank-k update, which scales C on its own */
             for (int32_t i = 0; i < 4; ++i) c2[i] = NAN + NAN * I;
 
-            tinyblas_zherk(TINYBLAS_LOWER, TINYBLAS_NO_TRANS, 2, 2,
+            tinyblas_zherk(TINYBLAS_LOWER, TINYBLAS_NONE, 2, 2,
                            1.0, b2, 2, 0.0, c2, 2);
 
             CHECK(isfinite(creal(c2[0])) && isfinite(cimag(c2[0]))

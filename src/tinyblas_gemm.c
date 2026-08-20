@@ -316,6 +316,54 @@ gemm_naive_z(int32_t m, int32_t n, int32_t k, double complex alpha,
 #define S_NC 3072
 #endif
 
+/* Complex micro-kernel shape. One vector holds two complex doubles (four
+ * complex floats), so NR = 4 (8) complex is two vectors, and MR = 4 gives
+ * eight accumulators: the minimum in flight to cover a four-cycle FMA latency
+ * at two FMAs per cycle. MR = 6 would want 19 live registers and spill, which
+ * is why the real kernel's 6 by 2 shape is not reused here. A B micro-row is
+ * 64 bytes either way, one cache line, as in the real packers.
+ *
+ * The cache blocks hold the same byte budget as their real counterparts, so
+ * the double-complex MC halves against D_MC and the rest carry over.
+ *
+ * ponytail: this lands at roughly 87% of the real kernel's own rate. The gap
+ * is the swap-and-negate pair per k step plus eight broadcasts against the
+ * real kernel's six, and closing it wants a wider register file than AVX2
+ * has, not a better arrangement of this one. KC was swept against 128 on a
+ * paired interleaved run; 256 won, so the L1 arithmetic that suggests 128 is
+ * not what binds here. */
+#ifndef Z_MR
+#define Z_MR 4
+#endif
+#ifndef Z_NR
+#define Z_NR 4
+#endif
+#ifndef Z_MC
+#define Z_MC 36
+#endif
+#ifndef Z_KC
+#define Z_KC 256
+#endif
+#ifndef Z_NC
+#define Z_NC 1536
+#endif
+
+#ifndef C_MR
+#define C_MR 4
+#endif
+#ifndef C_NR
+#define C_NR 8
+#endif
+#ifndef C_MC
+#define C_MC 72
+#endif
+#ifndef C_KC
+#define C_KC 256
+#endif
+#ifndef C_NC
+#define C_NC 3072
+#endif
+
 /* Below this the packing and the malloc cost more than the triple loop. */
 #ifndef D_SMALL
 #define D_SMALL 8000
@@ -757,7 +805,7 @@ gemm_packed_s(int32_t m, int32_t n, int32_t k, float alpha,
  *  Single-precision general matrix multiply: sgemm
  */
 void
-tinyblas_sgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+tinyblas_sgemm(enum tinyblas_op transa, enum tinyblas_op transb,
         int32_t m, int32_t n, int32_t k,
         float alpha,
         const float *restrict a, int32_t lda,
@@ -777,10 +825,10 @@ tinyblas_sgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
     assert(a && b);
 
     {
-        ptrdiff_t ars = transa == TINYBLAS_NO_TRANS ? (ptrdiff_t)lda : 1;
-        ptrdiff_t acs = transa == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)lda;
-        ptrdiff_t brs = transb == TINYBLAS_NO_TRANS ? (ptrdiff_t)ldb : 1;
-        ptrdiff_t bcs = transb == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)ldb;
+        ptrdiff_t ars = transa == TINYBLAS_NONE ? (ptrdiff_t)lda : 1;
+        ptrdiff_t acs = transa == TINYBLAS_NONE ? 1 : (ptrdiff_t)lda;
+        ptrdiff_t brs = transb == TINYBLAS_NONE ? (ptrdiff_t)ldb : 1;
+        ptrdiff_t bcs = transb == TINYBLAS_NONE ? 1 : (ptrdiff_t)ldb;
 
         int32_t mcl = m < S_MC ? m : S_MC;
         int32_t kcl = k < S_KC ? k : S_KC;
@@ -815,7 +863,7 @@ tinyblas_sgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
  *  Double-precision general matrix multiply: dgemm
  */
 void
-tinyblas_dgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+tinyblas_dgemm(enum tinyblas_op transa, enum tinyblas_op transb,
         int32_t m, int32_t n, int32_t k,
         double alpha,
         const double *restrict a, int32_t lda,
@@ -835,10 +883,10 @@ tinyblas_dgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
     assert(a && b);
 
     {
-        ptrdiff_t ars = transa == TINYBLAS_NO_TRANS ? (ptrdiff_t)lda : 1;
-        ptrdiff_t acs = transa == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)lda;
-        ptrdiff_t brs = transb == TINYBLAS_NO_TRANS ? (ptrdiff_t)ldb : 1;
-        ptrdiff_t bcs = transb == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)ldb;
+        ptrdiff_t ars = transa == TINYBLAS_NONE ? (ptrdiff_t)lda : 1;
+        ptrdiff_t acs = transa == TINYBLAS_NONE ? 1 : (ptrdiff_t)lda;
+        ptrdiff_t brs = transb == TINYBLAS_NONE ? (ptrdiff_t)ldb : 1;
+        ptrdiff_t bcs = transb == TINYBLAS_NONE ? 1 : (ptrdiff_t)ldb;
 
         /* Clipped to the problem, so a 64-cubed gemm allocates 64 KB rather
          * than the 6 MB the full blocking would ask for. Edge micro-panels are
@@ -875,165 +923,527 @@ tinyblas_dgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
 }
 
 /*
- *  Complex gemm as four real gemms on split real and imaginary parts
+ *  The double-complex micro-kernel: C += Ap * Bp over a full 4 by 4 tile
  *
- *      C_re = A_re*B_re - A_im*B_im
- *      C_im = A_re*B_im + A_im*B_re
+ *  Both panels are packed interleaved (re, im), so one vector holds two
+ *  complex numbers. A complex multiply-add is two FMAs and nothing else:
  *
- *  This is the 4M form, not the 3M one: it does the same four multiplies the
- *  direct method does, so it inherits the same error bound. 3M trades one
- *  multiply for extra additions and loses that, which is why it is not here.
+ *      c += ar * (br, bi)  +  ai * (-bi, br)
  *
- *  The point is that it reuses the tuned real kernel instead of introducing a
- *  second one. Splitting costs O(mk + kn + mn) against O(mnk) of arithmetic,
- *  and the four calls total 8mnk flops, which is exactly the conventional
- *  complex flop count, so the GFLOP/s land near the real kernel's.
+ *  The second operand is the first with the halves swapped and the real lane
+ *  negated, and it depends only on B, so it is built once per k step and
+ *  shared across all 4 rows. Two FMAs of 4 lanes do two complex MACs,
+ *  which is the conventional 8 flops each with none wasted — the same peak the
+ *  real kernel reaches, which is the entire point of not splitting into four
+ *  real gemms.
  *
- *  Splitting also applies the transpose and the conjugate while it copies, so
- *  the four gemms are all untransposed with dense leading dimensions.
- *
- *  Returns 0 if it declined the problem, leaving the caller to fall back.
- *
- *  ponytail: measured at 70-78% of OpenBLAS against dgemm's 77-96%, the gap
- *  being the split and merge traffic plus four passes over C instead of one.
- *  Upgrade path is a genuine complex micro-kernel: pack A as (ar, -ai, +ai) so
- *  a broadcast pair feeds two plain FMAs, MR=4 NR=4 complex, KC halved to 128
- *  because A packs 1.5x wide. That is roughly 200 lines of intrinsics and new
- *  blocking constants to buy maybe 10 points. Only worth it if complex is the
- *  workload rather than an afterthought.
+ *  c points at the tile as interleaved scalars and ldc is its row stride in
+ *  scalars, not in complex elements.
  */
-static int
-gemm_split_z(int32_t m, int32_t n, int32_t k, double complex alpha,
-        const double complex *restrict a, ptrdiff_t ars, ptrdiff_t acs, int conja,
-        const double complex *restrict b, ptrdiff_t brs, ptrdiff_t bcs, int conjb,
-        double complex *restrict c, int32_t ldc)
+static void
+zgemm_ukernel(int32_t kc, const double *restrict ap, const double *restrict bp,
+        double *restrict c, ptrdiff_t ldc)
 {
-    size_t  na = (size_t)m * (size_t)k;
-    size_t  nb = (size_t)k * (size_t)n;
-    size_t  nc = (size_t)m * (size_t)n;
-    double *buf = malloc((2u * (na + nb + nc)) * sizeof(double));
+#if defined(__AVX2__) && defined(__FMA__)
+    const __m256d neg = _mm256_setr_pd(-0.0, 0.0, -0.0, 0.0);
 
-    double *are, *aim, *bre, *bim, *cre, *cim;
-    double  alr = creal(alpha), ali = cimag(alpha);
+    __m256d c00 = _mm256_setzero_pd(), c01 = _mm256_setzero_pd();
+    __m256d c10 = _mm256_setzero_pd(), c11 = _mm256_setzero_pd();
+    __m256d c20 = _mm256_setzero_pd(), c21 = _mm256_setzero_pd();
+    __m256d c30 = _mm256_setzero_pd(), c31 = _mm256_setzero_pd();
 
-    if (buf == NULL) return 0;
+    for (int32_t p = 0; p < kc; ++p) {
+        __m256d b0 = _mm256_loadu_pd(bp);
+        __m256d b1 = _mm256_loadu_pd(bp + 4);
+        __m256d b0s = _mm256_xor_pd(_mm256_permute_pd(b0, 0x5), neg);
+        __m256d b1s = _mm256_xor_pd(_mm256_permute_pd(b1, 0x5), neg);
+        __m256d ar, ai;
 
-    are = buf;          aim = are + na;
-    bre = aim + na;     bim = bre + nb;
-    cre = bim + nb;     cim = cre + nc;
+        ar = _mm256_broadcast_sd(ap + 0);
+        ai = _mm256_broadcast_sd(ap + 1);
+        c00 = _mm256_fmadd_pd(ar, b0, c00);
+        c00 = _mm256_fmadd_pd(ai, b0s, c00);
+        c01 = _mm256_fmadd_pd(ar, b1, c01);
+        c01 = _mm256_fmadd_pd(ai, b1s, c01);
 
-    for (int32_t i = 0; i < m; ++i) {
-        for (int32_t p = 0; p < k; ++p) {
-            double complex z = a[(ptrdiff_t)i * ars + (ptrdiff_t)p * acs];
+        ar = _mm256_broadcast_sd(ap + 2);
+        ai = _mm256_broadcast_sd(ap + 3);
+        c10 = _mm256_fmadd_pd(ar, b0, c10);
+        c10 = _mm256_fmadd_pd(ai, b0s, c10);
+        c11 = _mm256_fmadd_pd(ar, b1, c11);
+        c11 = _mm256_fmadd_pd(ai, b1s, c11);
 
-            are[(size_t)i * (size_t)k + (size_t)p] = creal(z);
-            aim[(size_t)i * (size_t)k + (size_t)p] = conja ? -cimag(z) : cimag(z);
+        ar = _mm256_broadcast_sd(ap + 4);
+        ai = _mm256_broadcast_sd(ap + 5);
+        c20 = _mm256_fmadd_pd(ar, b0, c20);
+        c20 = _mm256_fmadd_pd(ai, b0s, c20);
+        c21 = _mm256_fmadd_pd(ar, b1, c21);
+        c21 = _mm256_fmadd_pd(ai, b1s, c21);
+
+        ar = _mm256_broadcast_sd(ap + 6);
+        ai = _mm256_broadcast_sd(ap + 7);
+        c30 = _mm256_fmadd_pd(ar, b0, c30);
+        c30 = _mm256_fmadd_pd(ai, b0s, c30);
+        c31 = _mm256_fmadd_pd(ar, b1, c31);
+        c31 = _mm256_fmadd_pd(ai, b1s, c31);
+
+        ap += 2 * Z_MR;
+        bp += 2 * Z_NR;
+    }
+
+#define STORE_ROW(r, v0, v1) do { \
+    double *cr = c + (ptrdiff_t)(r) * ldc; \
+    _mm256_storeu_pd(cr,     _mm256_add_pd(_mm256_loadu_pd(cr),     (v0))); \
+    _mm256_storeu_pd(cr + 4, _mm256_add_pd(_mm256_loadu_pd(cr + 4), (v1))); \
+} while (0)
+
+    STORE_ROW(0, c00, c01);
+    STORE_ROW(1, c10, c11);
+    STORE_ROW(2, c20, c21);
+    STORE_ROW(3, c30, c31);
+
+#undef STORE_ROW
+#else
+    /* Portable path: plain C99 over the same packed layout. */
+    double acc[Z_MR][2 * Z_NR];
+
+    for (int32_t i = 0; i < Z_MR; ++i)
+        for (int32_t j = 0; j < 2 * Z_NR; ++j)
+            acc[i][j] = 0.0;
+
+    for (int32_t p = 0; p < kc; ++p) {
+        for (int32_t i = 0; i < Z_MR; ++i) {
+            double ar = ap[p * 2 * Z_MR + 2 * i];
+            double ai = ap[p * 2 * Z_MR + 2 * i + 1];
+
+            for (int32_t j = 0; j < Z_NR; ++j) {
+                double br = bp[p * 2 * Z_NR + 2 * j];
+                double bi = bp[p * 2 * Z_NR + 2 * j + 1];
+
+                acc[i][2 * j]     += ar * br - ai * bi;
+                acc[i][2 * j + 1] += ar * bi + ai * br;
+            }
         }
     }
 
-    for (int32_t p = 0; p < k; ++p) {
-        for (int32_t j = 0; j < n; ++j) {
-            double complex z = b[(ptrdiff_t)p * brs + (ptrdiff_t)j * bcs];
-
-            bre[(size_t)p * (size_t)n + (size_t)j] = creal(z);
-            bim[(size_t)p * (size_t)n + (size_t)j] = conjb ? -cimag(z) : cimag(z);
-        }
-    }
-
-    tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0, are, k, bre, n, 0.0, cre, n);
-    tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                   -1.0, aim, k, bim, n, 1.0, cre, n);
-    tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0, are, k, bim, n, 0.0, cim, n);
-    tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0, aim, k, bre, n, 1.0, cim, n);
-
-    /* C already carries beta*C, so fold in alpha and accumulate */
-    for (int32_t i = 0; i < m; ++i) {
-        for (int32_t j = 0; j < n; ++j) {
-            double pr = cre[(size_t)i * (size_t)n + (size_t)j];
-            double pi = cim[(size_t)i * (size_t)n + (size_t)j];
-            double complex z = c[(ptrdiff_t)i * ldc + j];
-
-            c[(ptrdiff_t)i * ldc + j] = (creal(z) + (alr * pr - ali * pi))
-                                      + (cimag(z) + (alr * pi + ali * pr)) * I;
-        }
-    }
-
-    free(buf);
-
-    return 1;
+    for (int32_t i = 0; i < Z_MR; ++i)
+        for (int32_t j = 0; j < 2 * Z_NR; ++j)
+            c[(ptrdiff_t)i * ldc + j] += acc[i][j];
+#endif
 }
 
-static int
-gemm_split_c(int32_t m, int32_t n, int32_t k, float complex alpha,
-        const float complex *restrict a, ptrdiff_t ars, ptrdiff_t acs, int conja,
-        const float complex *restrict b, ptrdiff_t brs, ptrdiff_t bcs, int conjb,
+/*
+ *  Pack an MC by KC block of A into 4 by KC micro-panels
+ *
+ *  alpha and the conjugate are both folded in here, which is why the kernel
+ *  sees neither. Short edge panels are zero-filled, as in the real packers.
+ */
+static void
+pack_a_z(int32_t mc, int32_t kc, double complex alpha,
+        const double complex *restrict a, ptrdiff_t rs, ptrdiff_t cs, int conj,
+        double *restrict ap)
+{
+    double alr = creal(alpha), ali = cimag(alpha);
+
+    for (int32_t i = 0; i < mc; i += Z_MR) {
+        int32_t mr = (mc - i < Z_MR) ? mc - i : Z_MR;
+
+        for (int32_t p = 0; p < kc; ++p) {
+            int32_t ii;
+
+            for (ii = 0; ii < mr; ++ii) {
+                double complex z = a[(ptrdiff_t)(i + ii) * rs + (ptrdiff_t)p * cs];
+                double zr = creal(z), zi = conj ? -cimag(z) : cimag(z);
+
+                *ap++ = alr * zr - ali * zi;
+                *ap++ = alr * zi + ali * zr;
+            }
+
+            for (; ii < Z_MR; ++ii) {
+                *ap++ = 0.0;
+                *ap++ = 0.0;
+            }
+        }
+    }
+}
+
+/*
+ *  Pack a KC by NC block of B into KC by 4 micro-panels
+ *
+ *  One k step is 4 consecutive complex numbers, which is 64 bytes: one
+ *  cache line and one pair of vector loads, exactly as in the real packers.
+ */
+static void
+pack_b_z(int32_t kc, int32_t nc,
+        const double complex *restrict b, ptrdiff_t rs, ptrdiff_t cs, int conj,
+        double *restrict bp)
+{
+    for (int32_t j = 0; j < nc; j += Z_NR) {
+        int32_t nr = (nc - j < Z_NR) ? nc - j : Z_NR;
+
+        for (int32_t p = 0; p < kc; ++p) {
+            int32_t jj;
+
+            for (jj = 0; jj < nr; ++jj) {
+                double complex z = b[(ptrdiff_t)p * rs + (ptrdiff_t)(j + jj) * cs];
+
+                *bp++ = creal(z);
+                *bp++ = conj ? -cimag(z) : cimag(z);
+            }
+
+            for (; jj < Z_NR; ++jj) {
+                *bp++ = 0.0;
+                *bp++ = 0.0;
+            }
+        }
+    }
+}
+
+/*
+ *  Sweep the packed panels over one MC by NC block of C
+ */
+static void
+macro_kernel_z(int32_t mc, int32_t nc, int32_t kc,
+        const double *restrict ap, const double *restrict bp,
+        double complex *restrict c, int32_t ldc)
+{
+    for (int32_t j = 0; j < nc; j += Z_NR) {
+        int32_t nr = (nc - j < Z_NR) ? nc - j : Z_NR;
+        const double *bpj = bp + (ptrdiff_t)(j / Z_NR) * kc * 2 * Z_NR;
+
+        for (int32_t i = 0; i < mc; i += Z_MR) {
+            int32_t mr = (mc - i < Z_MR) ? mc - i : Z_MR;
+            const double *api = ap + (ptrdiff_t)(i / Z_MR) * kc * 2 * Z_MR;
+            double complex *cij = c + (ptrdiff_t)i * ldc + j;
+
+            if (mr == Z_MR && nr == Z_NR) {
+                zgemm_ukernel(kc, api, bpj, (double *)(void *)cij,
+                                2 * (ptrdiff_t)ldc);
+
+                continue;
+            }
+
+            {
+                double ct[Z_MR * 2 * Z_NR];
+
+                for (int32_t t = 0; t < Z_MR * 2 * Z_NR; ++t)
+                    ct[t] = 0.0;
+
+                zgemm_ukernel(kc, api, bpj, ct, 2 * Z_NR);
+
+                for (int32_t ii = 0; ii < mr; ++ii) {
+                    for (int32_t jj = 0; jj < nr; ++jj) {
+                        double pr = ct[ii * 2 * Z_NR + 2 * jj];
+                        double pi = ct[ii * 2 * Z_NR + 2 * jj + 1];
+                        double complex z = cij[(ptrdiff_t)ii * ldc + jj];
+
+                        cij[(ptrdiff_t)ii * ldc + jj] = (creal(z) + pr)
+                                                      + (cimag(z) + pi) * I;
+                    }
+                }
+            }
+        }
+    }
+}
+
+/*
+ *  The five-loop nest around the complex micro-kernel
+ */
+static void
+gemm_packed_z(int32_t m, int32_t n, int32_t k, double complex alpha,
+        const double complex *restrict a, ptrdiff_t ars, ptrdiff_t acs, int conja,
+        const double complex *restrict b, ptrdiff_t brs, ptrdiff_t bcs, int conjb,
+        double complex *restrict c, int32_t ldc,
+        double *restrict ap, double *restrict bp)
+{
+    for (int32_t jc = 0; jc < n; jc += Z_NC) {
+        int32_t nc = (n - jc < Z_NC) ? n - jc : Z_NC;
+
+        for (int32_t pc = 0; pc < k; pc += Z_KC) {
+            int32_t kc = (k - pc < Z_KC) ? k - pc : Z_KC;
+
+            pack_b_z(kc, nc,
+                       b + (ptrdiff_t)pc * brs + (ptrdiff_t)jc * bcs,
+                       brs, bcs, conjb, bp);
+
+            for (int32_t ic = 0; ic < m; ic += Z_MC) {
+                int32_t mc = (m - ic < Z_MC) ? m - ic : Z_MC;
+
+                pack_a_z(mc, kc, alpha,
+                           a + (ptrdiff_t)ic * ars + (ptrdiff_t)pc * acs,
+                           ars, acs, conja, ap);
+
+                macro_kernel_z(mc, nc, kc, ap, bp,
+                                 c + (ptrdiff_t)ic * ldc + jc, ldc);
+            }
+        }
+    }
+}
+
+/*
+ *  The single-complex micro-kernel: C += Ap * Bp over a full 4 by 8 tile
+ *
+ *  Both panels are packed interleaved (re, im), so one vector holds four
+ *  complex numbers. A complex multiply-add is two FMAs and nothing else:
+ *
+ *      c += ar * (br, bi)  +  ai * (-bi, br)
+ *
+ *  The second operand is the first with the halves swapped and the real lane
+ *  negated, and it depends only on B, so it is built once per k step and
+ *  shared across all 4 rows. Two FMAs of 8 lanes do four complex MACs,
+ *  which is the conventional 8 flops each with none wasted — the same peak the
+ *  real kernel reaches, which is the entire point of not splitting into four
+ *  real gemms.
+ *
+ *  c points at the tile as interleaved scalars and ldc is its row stride in
+ *  scalars, not in complex elements.
+ */
+static void
+cgemm_ukernel(int32_t kc, const float *restrict ap, const float *restrict bp,
+        float *restrict c, ptrdiff_t ldc)
+{
+#if defined(__AVX2__) && defined(__FMA__)
+    const __m256 neg = _mm256_setr_ps(-0.0f, 0.0f, -0.0f, 0.0f,
+                                    -0.0f, 0.0f, -0.0f, 0.0f);
+
+    __m256 c00 = _mm256_setzero_ps(), c01 = _mm256_setzero_ps();
+    __m256 c10 = _mm256_setzero_ps(), c11 = _mm256_setzero_ps();
+    __m256 c20 = _mm256_setzero_ps(), c21 = _mm256_setzero_ps();
+    __m256 c30 = _mm256_setzero_ps(), c31 = _mm256_setzero_ps();
+
+    for (int32_t p = 0; p < kc; ++p) {
+        __m256 b0 = _mm256_loadu_ps(bp);
+        __m256 b1 = _mm256_loadu_ps(bp + 8);
+        __m256 b0s = _mm256_xor_ps(_mm256_permute_ps(b0, 0xB1), neg);
+        __m256 b1s = _mm256_xor_ps(_mm256_permute_ps(b1, 0xB1), neg);
+        __m256 ar, ai;
+
+        ar = _mm256_broadcast_ss(ap + 0);
+        ai = _mm256_broadcast_ss(ap + 1);
+        c00 = _mm256_fmadd_ps(ar, b0, c00);
+        c00 = _mm256_fmadd_ps(ai, b0s, c00);
+        c01 = _mm256_fmadd_ps(ar, b1, c01);
+        c01 = _mm256_fmadd_ps(ai, b1s, c01);
+
+        ar = _mm256_broadcast_ss(ap + 2);
+        ai = _mm256_broadcast_ss(ap + 3);
+        c10 = _mm256_fmadd_ps(ar, b0, c10);
+        c10 = _mm256_fmadd_ps(ai, b0s, c10);
+        c11 = _mm256_fmadd_ps(ar, b1, c11);
+        c11 = _mm256_fmadd_ps(ai, b1s, c11);
+
+        ar = _mm256_broadcast_ss(ap + 4);
+        ai = _mm256_broadcast_ss(ap + 5);
+        c20 = _mm256_fmadd_ps(ar, b0, c20);
+        c20 = _mm256_fmadd_ps(ai, b0s, c20);
+        c21 = _mm256_fmadd_ps(ar, b1, c21);
+        c21 = _mm256_fmadd_ps(ai, b1s, c21);
+
+        ar = _mm256_broadcast_ss(ap + 6);
+        ai = _mm256_broadcast_ss(ap + 7);
+        c30 = _mm256_fmadd_ps(ar, b0, c30);
+        c30 = _mm256_fmadd_ps(ai, b0s, c30);
+        c31 = _mm256_fmadd_ps(ar, b1, c31);
+        c31 = _mm256_fmadd_ps(ai, b1s, c31);
+
+        ap += 2 * C_MR;
+        bp += 2 * C_NR;
+    }
+
+#define STORE_ROW(r, v0, v1) do { \
+    float *cr = c + (ptrdiff_t)(r) * ldc; \
+    _mm256_storeu_ps(cr,     _mm256_add_ps(_mm256_loadu_ps(cr),     (v0))); \
+    _mm256_storeu_ps(cr + 8, _mm256_add_ps(_mm256_loadu_ps(cr + 8), (v1))); \
+} while (0)
+
+    STORE_ROW(0, c00, c01);
+    STORE_ROW(1, c10, c11);
+    STORE_ROW(2, c20, c21);
+    STORE_ROW(3, c30, c31);
+
+#undef STORE_ROW
+#else
+    /* Portable path: plain C99 over the same packed layout. */
+    float acc[C_MR][2 * C_NR];
+
+    for (int32_t i = 0; i < C_MR; ++i)
+        for (int32_t j = 0; j < 2 * C_NR; ++j)
+            acc[i][j] = 0.0f;
+
+    for (int32_t p = 0; p < kc; ++p) {
+        for (int32_t i = 0; i < C_MR; ++i) {
+            float ar = ap[p * 2 * C_MR + 2 * i];
+            float ai = ap[p * 2 * C_MR + 2 * i + 1];
+
+            for (int32_t j = 0; j < C_NR; ++j) {
+                float br = bp[p * 2 * C_NR + 2 * j];
+                float bi = bp[p * 2 * C_NR + 2 * j + 1];
+
+                acc[i][2 * j]     += ar * br - ai * bi;
+                acc[i][2 * j + 1] += ar * bi + ai * br;
+            }
+        }
+    }
+
+    for (int32_t i = 0; i < C_MR; ++i)
+        for (int32_t j = 0; j < 2 * C_NR; ++j)
+            c[(ptrdiff_t)i * ldc + j] += acc[i][j];
+#endif
+}
+
+/*
+ *  Pack an MC by KC block of A into 4 by KC micro-panels
+ *
+ *  alpha and the conjugate are both folded in here, which is why the kernel
+ *  sees neither. Short edge panels are zero-filled, as in the real packers.
+ */
+static void
+pack_a_c(int32_t mc, int32_t kc, float complex alpha,
+        const float complex *restrict a, ptrdiff_t rs, ptrdiff_t cs, int conj,
+        float *restrict ap)
+{
+    float alr = crealf(alpha), ali = cimagf(alpha);
+
+    for (int32_t i = 0; i < mc; i += C_MR) {
+        int32_t mr = (mc - i < C_MR) ? mc - i : C_MR;
+
+        for (int32_t p = 0; p < kc; ++p) {
+            int32_t ii;
+
+            for (ii = 0; ii < mr; ++ii) {
+                float complex z = a[(ptrdiff_t)(i + ii) * rs + (ptrdiff_t)p * cs];
+                float zr = crealf(z), zi = conj ? -cimagf(z) : cimagf(z);
+
+                *ap++ = alr * zr - ali * zi;
+                *ap++ = alr * zi + ali * zr;
+            }
+
+            for (; ii < C_MR; ++ii) {
+                *ap++ = 0.0f;
+                *ap++ = 0.0f;
+            }
+        }
+    }
+}
+
+/*
+ *  Pack a KC by NC block of B into KC by 8 micro-panels
+ *
+ *  One k step is 8 consecutive complex numbers, which is 64 bytes: one
+ *  cache line and one pair of vector loads, exactly as in the real packers.
+ */
+static void
+pack_b_c(int32_t kc, int32_t nc,
+        const float complex *restrict b, ptrdiff_t rs, ptrdiff_t cs, int conj,
+        float *restrict bp)
+{
+    for (int32_t j = 0; j < nc; j += C_NR) {
+        int32_t nr = (nc - j < C_NR) ? nc - j : C_NR;
+
+        for (int32_t p = 0; p < kc; ++p) {
+            int32_t jj;
+
+            for (jj = 0; jj < nr; ++jj) {
+                float complex z = b[(ptrdiff_t)p * rs + (ptrdiff_t)(j + jj) * cs];
+
+                *bp++ = crealf(z);
+                *bp++ = conj ? -cimagf(z) : cimagf(z);
+            }
+
+            for (; jj < C_NR; ++jj) {
+                *bp++ = 0.0f;
+                *bp++ = 0.0f;
+            }
+        }
+    }
+}
+
+/*
+ *  Sweep the packed panels over one MC by NC block of C
+ */
+static void
+macro_kernel_c(int32_t mc, int32_t nc, int32_t kc,
+        const float *restrict ap, const float *restrict bp,
         float complex *restrict c, int32_t ldc)
 {
-    size_t na = (size_t)m * (size_t)k;
-    size_t nb = (size_t)k * (size_t)n;
-    size_t nc = (size_t)m * (size_t)n;
-    float *buf = malloc((2u * (na + nb + nc)) * sizeof(float));
+    for (int32_t j = 0; j < nc; j += C_NR) {
+        int32_t nr = (nc - j < C_NR) ? nc - j : C_NR;
+        const float *bpj = bp + (ptrdiff_t)(j / C_NR) * kc * 2 * C_NR;
 
-    float *are, *aim, *bre, *bim, *cre, *cim;
-    float  alr = crealf(alpha), ali = cimagf(alpha);
+        for (int32_t i = 0; i < mc; i += C_MR) {
+            int32_t mr = (mc - i < C_MR) ? mc - i : C_MR;
+            const float *api = ap + (ptrdiff_t)(i / C_MR) * kc * 2 * C_MR;
+            float complex *cij = c + (ptrdiff_t)i * ldc + j;
 
-    if (buf == NULL) return 0;
+            if (mr == C_MR && nr == C_NR) {
+                cgemm_ukernel(kc, api, bpj, (float *)(void *)cij,
+                                2 * (ptrdiff_t)ldc);
 
-    are = buf;          aim = are + na;
-    bre = aim + na;     bim = bre + nb;
-    cre = bim + nb;     cim = cre + nc;
+                continue;
+            }
 
-    for (int32_t i = 0; i < m; ++i) {
-        for (int32_t p = 0; p < k; ++p) {
-            float complex z = a[(ptrdiff_t)i * ars + (ptrdiff_t)p * acs];
+            {
+                float ct[C_MR * 2 * C_NR];
 
-            are[(size_t)i * (size_t)k + (size_t)p] = crealf(z);
-            aim[(size_t)i * (size_t)k + (size_t)p] = conja ? -cimagf(z) : cimagf(z);
+                for (int32_t t = 0; t < C_MR * 2 * C_NR; ++t)
+                    ct[t] = 0.0f;
+
+                cgemm_ukernel(kc, api, bpj, ct, 2 * C_NR);
+
+                for (int32_t ii = 0; ii < mr; ++ii) {
+                    for (int32_t jj = 0; jj < nr; ++jj) {
+                        float pr = ct[ii * 2 * C_NR + 2 * jj];
+                        float pi = ct[ii * 2 * C_NR + 2 * jj + 1];
+                        float complex z = cij[(ptrdiff_t)ii * ldc + jj];
+
+                        cij[(ptrdiff_t)ii * ldc + jj] = (crealf(z) + pr)
+                                                      + (cimagf(z) + pi) * I;
+                    }
+                }
+            }
         }
     }
+}
 
-    for (int32_t p = 0; p < k; ++p) {
-        for (int32_t j = 0; j < n; ++j) {
-            float complex z = b[(ptrdiff_t)p * brs + (ptrdiff_t)j * bcs];
+/*
+ *  The five-loop nest around the complex micro-kernel
+ */
+static void
+gemm_packed_c(int32_t m, int32_t n, int32_t k, float complex alpha,
+        const float complex *restrict a, ptrdiff_t ars, ptrdiff_t acs, int conja,
+        const float complex *restrict b, ptrdiff_t brs, ptrdiff_t bcs, int conjb,
+        float complex *restrict c, int32_t ldc,
+        float *restrict ap, float *restrict bp)
+{
+    for (int32_t jc = 0; jc < n; jc += C_NC) {
+        int32_t nc = (n - jc < C_NC) ? n - jc : C_NC;
 
-            bre[(size_t)p * (size_t)n + (size_t)j] = crealf(z);
-            bim[(size_t)p * (size_t)n + (size_t)j] = conjb ? -cimagf(z) : cimagf(z);
+        for (int32_t pc = 0; pc < k; pc += C_KC) {
+            int32_t kc = (k - pc < C_KC) ? k - pc : C_KC;
+
+            pack_b_c(kc, nc,
+                       b + (ptrdiff_t)pc * brs + (ptrdiff_t)jc * bcs,
+                       brs, bcs, conjb, bp);
+
+            for (int32_t ic = 0; ic < m; ic += C_MC) {
+                int32_t mc = (m - ic < C_MC) ? m - ic : C_MC;
+
+                pack_a_c(mc, kc, alpha,
+                           a + (ptrdiff_t)ic * ars + (ptrdiff_t)pc * acs,
+                           ars, acs, conja, ap);
+
+                macro_kernel_c(mc, nc, kc, ap, bp,
+                                 c + (ptrdiff_t)ic * ldc + jc, ldc);
+            }
         }
     }
-
-    tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0f, are, k, bre, n, 0.0f, cre, n);
-    tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                   -1.0f, aim, k, bim, n, 1.0f, cre, n);
-    tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0f, are, k, bim, n, 0.0f, cim, n);
-    tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, k,
-                    1.0f, aim, k, bre, n, 1.0f, cim, n);
-
-    for (int32_t i = 0; i < m; ++i) {
-        for (int32_t j = 0; j < n; ++j) {
-            float pr = cre[(size_t)i * (size_t)n + (size_t)j];
-            float pi = cim[(size_t)i * (size_t)n + (size_t)j];
-            float complex z = c[(ptrdiff_t)i * ldc + j];
-
-            c[(ptrdiff_t)i * ldc + j] = (crealf(z) + (alr * pr - ali * pi))
-                                      + (cimagf(z) + (alr * pi + ali * pr)) * I;
-        }
-    }
-
-    free(buf);
-
-    return 1;
 }
 
 /*
  *  Single-precision complex general matrix multiply: cgemm
  */
 void
-tinyblas_cgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+tinyblas_cgemm(enum tinyblas_op transa, enum tinyblas_op transb,
         int32_t m, int32_t n, int32_t k,
         float complex alpha,
         const float complex *restrict a, int32_t lda,
@@ -1053,21 +1463,42 @@ tinyblas_cgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
     assert(a && b);
 
     {
-        ptrdiff_t ars = transa == TINYBLAS_NO_TRANS ? (ptrdiff_t)lda : 1;
-        ptrdiff_t acs = transa == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)lda;
-        ptrdiff_t brs = transb == TINYBLAS_NO_TRANS ? (ptrdiff_t)ldb : 1;
-        ptrdiff_t bcs = transb == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)ldb;
+        ptrdiff_t ars = transa == TINYBLAS_NONE ? (ptrdiff_t)lda : 1;
+        ptrdiff_t acs = transa == TINYBLAS_NONE ? 1 : (ptrdiff_t)lda;
+        ptrdiff_t brs = transb == TINYBLAS_NONE ? (ptrdiff_t)ldb : 1;
+        ptrdiff_t bcs = transb == TINYBLAS_NONE ? 1 : (ptrdiff_t)ldb;
 
         int conja = transa == TINYBLAS_CONJ_TRANS;
         int conjb = transb == TINYBLAS_CONJ_TRANS;
 
-        if ((int64_t)m * (int64_t)n * (int64_t)k >= D_SMALL &&
-            gemm_split_c(m, n, k, alpha, a, ars, acs, conja,
-                         b, brs, bcs, conjb, c, ldc))
-            return;
+        int32_t mcl = m < C_MC ? m : C_MC;
+        int32_t kcl = k < C_KC ? k : C_KC;
+        int32_t ncl = n < C_NC ? n : C_NC;
 
-        gemm_naive_c(m, n, k, alpha, a, ars, acs, conja,
-                     b, brs, bcs, conjb, c, ldc);
+        char *raw;
+        float *ap, *bp;
+
+        mcl = ((mcl + C_MR - 1) / C_MR) * C_MR;
+        ncl = ((ncl + C_NR - 1) / C_NR) * C_NR;
+
+        raw = malloc(2u * ((size_t)mcl * (size_t)kcl
+                           + (size_t)kcl * (size_t)ncl) * sizeof(float) + 64u);
+
+        if (raw == NULL || (int64_t)m * (int64_t)n * (int64_t)k < D_SMALL) {
+            free(raw);
+            gemm_naive_c(m, n, k, alpha, a, ars, acs, conja,
+                         b, brs, bcs, conjb, c, ldc);
+
+            return;
+        }
+
+        ap = (float *)(void *)(((uintptr_t)raw + 63u) & ~(uintptr_t)63);
+        bp = ap + 2u * (size_t)mcl * (size_t)kcl;
+
+        gemm_packed_c(m, n, k, alpha, a, ars, acs, conja,
+                      b, brs, bcs, conjb, c, ldc, ap, bp);
+
+        free(raw);
     }
 }
 
@@ -1075,7 +1506,7 @@ tinyblas_cgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
  *  Double-precision complex general matrix multiply: zgemm
  */
 void
-tinyblas_zgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+tinyblas_zgemm(enum tinyblas_op transa, enum tinyblas_op transb,
         int32_t m, int32_t n, int32_t k,
         double complex alpha,
         const double complex *restrict a, int32_t lda,
@@ -1095,20 +1526,41 @@ tinyblas_zgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
     assert(a && b);
 
     {
-        ptrdiff_t ars = transa == TINYBLAS_NO_TRANS ? (ptrdiff_t)lda : 1;
-        ptrdiff_t acs = transa == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)lda;
-        ptrdiff_t brs = transb == TINYBLAS_NO_TRANS ? (ptrdiff_t)ldb : 1;
-        ptrdiff_t bcs = transb == TINYBLAS_NO_TRANS ? 1 : (ptrdiff_t)ldb;
+        ptrdiff_t ars = transa == TINYBLAS_NONE ? (ptrdiff_t)lda : 1;
+        ptrdiff_t acs = transa == TINYBLAS_NONE ? 1 : (ptrdiff_t)lda;
+        ptrdiff_t brs = transb == TINYBLAS_NONE ? (ptrdiff_t)ldb : 1;
+        ptrdiff_t bcs = transb == TINYBLAS_NONE ? 1 : (ptrdiff_t)ldb;
 
         int conja = transa == TINYBLAS_CONJ_TRANS;
         int conjb = transb == TINYBLAS_CONJ_TRANS;
 
-        if ((int64_t)m * (int64_t)n * (int64_t)k >= D_SMALL &&
-            gemm_split_z(m, n, k, alpha, a, ars, acs, conja,
-                         b, brs, bcs, conjb, c, ldc))
-            return;
+        int32_t mcl = m < Z_MC ? m : Z_MC;
+        int32_t kcl = k < Z_KC ? k : Z_KC;
+        int32_t ncl = n < Z_NC ? n : Z_NC;
 
-        gemm_naive_z(m, n, k, alpha, a, ars, acs, conja,
-                     b, brs, bcs, conjb, c, ldc);
+        char *raw;
+        double *ap, *bp;
+
+        mcl = ((mcl + Z_MR - 1) / Z_MR) * Z_MR;
+        ncl = ((ncl + Z_NR - 1) / Z_NR) * Z_NR;
+
+        raw = malloc(2u * ((size_t)mcl * (size_t)kcl
+                           + (size_t)kcl * (size_t)ncl) * sizeof(double) + 64u);
+
+        if (raw == NULL || (int64_t)m * (int64_t)n * (int64_t)k < D_SMALL) {
+            free(raw);
+            gemm_naive_z(m, n, k, alpha, a, ars, acs, conja,
+                         b, brs, bcs, conjb, c, ldc);
+
+            return;
+        }
+
+        ap = (double *)(void *)(((uintptr_t)raw + 63u) & ~(uintptr_t)63);
+        bp = ap + 2u * (size_t)mcl * (size_t)kcl;
+
+        gemm_packed_z(m, n, k, alpha, a, ars, acs, conja,
+                      b, brs, bcs, conjb, c, ldc, ap, bp);
+
+        free(raw);
     }
 }

@@ -52,13 +52,13 @@
  *  Single-precision general matrix-vector product: sgemv
  */
 void
-tinyblas_sgemv(enum tinyblas_trans trans, int32_t m, int32_t n, float alpha,
+tinyblas_sgemv(enum tinyblas_op trans, int32_t m, int32_t n, float alpha,
         const float *restrict a, int32_t lda,
         const float *restrict x, int32_t incx,
         float beta, float *restrict y, int32_t incy)
 {
-    int32_t lenx = (trans == TINYBLAS_NO_TRANS) ? n : m;
-    int32_t leny = (trans == TINYBLAS_NO_TRANS) ? m : n;
+    int32_t lenx = (trans == TINYBLAS_NONE) ? n : m;
+    int32_t leny = (trans == TINYBLAS_NONE) ? m : n;
 
     if (m <= 0 || n <= 0) return;
 
@@ -77,7 +77,7 @@ tinyblas_sgemv(enum tinyblas_trans trans, int32_t m, int32_t n, float alpha,
 
     assert(a && x);
 
-    if (trans != TINYBLAS_NO_TRANS) {
+    if (trans != TINYBLAS_NONE) {
         for (int32_t i = 0; i < m; ++i) {
             float t = alpha * x[(ptrdiff_t)i * incx];
             const float *row = a + (ptrdiff_t)i * lda;
@@ -140,13 +140,13 @@ tinyblas_sgemv(enum tinyblas_trans trans, int32_t m, int32_t n, float alpha,
  *  Double-precision general matrix-vector product: dgemv
  */
 void
-tinyblas_dgemv(enum tinyblas_trans trans, int32_t m, int32_t n, double alpha,
+tinyblas_dgemv(enum tinyblas_op trans, int32_t m, int32_t n, double alpha,
         const double *restrict a, int32_t lda,
         const double *restrict x, int32_t incx,
         double beta, double *restrict y, int32_t incy)
 {
-    int32_t lenx = (trans == TINYBLAS_NO_TRANS) ? n : m;
-    int32_t leny = (trans == TINYBLAS_NO_TRANS) ? m : n;
+    int32_t lenx = (trans == TINYBLAS_NONE) ? n : m;
+    int32_t leny = (trans == TINYBLAS_NONE) ? m : n;
 
     if (m <= 0 || n <= 0) return;
 
@@ -165,7 +165,7 @@ tinyblas_dgemv(enum tinyblas_trans trans, int32_t m, int32_t n, double alpha,
 
     assert(a && x);
 
-    if (trans != TINYBLAS_NO_TRANS) {
+    if (trans != TINYBLAS_NONE) {
         for (int32_t i = 0; i < m; ++i) {
             double t = alpha * x[(ptrdiff_t)i * incx];
             const double *row = a + (ptrdiff_t)i * lda;
@@ -228,14 +228,14 @@ tinyblas_dgemv(enum tinyblas_trans trans, int32_t m, int32_t n, double alpha,
  *  Single-precision complex general matrix-vector product: cgemv
  */
 void
-tinyblas_cgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
+tinyblas_cgemv(enum tinyblas_op trans, int32_t m, int32_t n,
         float complex alpha,
         const float complex *restrict a, int32_t lda,
         const float complex *restrict x, int32_t incx,
         float complex beta, float complex *restrict y, int32_t incy)
 {
-    int32_t lenx = (trans == TINYBLAS_NO_TRANS) ? n : m;
-    int32_t leny = (trans == TINYBLAS_NO_TRANS) ? m : n;
+    int32_t lenx = (trans == TINYBLAS_NONE) ? n : m;
+    int32_t leny = (trans == TINYBLAS_NONE) ? m : n;
     int     cnj = (trans == TINYBLAS_CONJ_TRANS);
     float   alr, ali;
 
@@ -267,7 +267,7 @@ tinyblas_cgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
     alr = crealf(alpha);
     ali = cimagf(alpha);
 
-    if (trans != TINYBLAS_NO_TRANS) {
+    if (trans != TINYBLAS_NONE) {
         /* A sign, not a branch. The flag is loop invariant, but a ternary in
          * the inner loop stops the vectorizer cold. */
         float sgn = cnj ? -1.0f : 1.0f;
@@ -388,14 +388,14 @@ tinyblas_cgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
  *  Double-precision complex general matrix-vector product: zgemv
  */
 void
-tinyblas_zgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
+tinyblas_zgemv(enum tinyblas_op trans, int32_t m, int32_t n,
         double complex alpha,
         const double complex *restrict a, int32_t lda,
         const double complex *restrict x, int32_t incx,
         double complex beta, double complex *restrict y, int32_t incy)
 {
-    int32_t lenx = (trans == TINYBLAS_NO_TRANS) ? n : m;
-    int32_t leny = (trans == TINYBLAS_NO_TRANS) ? m : n;
+    int32_t lenx = (trans == TINYBLAS_NONE) ? n : m;
+    int32_t leny = (trans == TINYBLAS_NONE) ? m : n;
     int     cnj = (trans == TINYBLAS_CONJ_TRANS);
     double  alr, ali;
 
@@ -427,7 +427,7 @@ tinyblas_zgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
     alr = creal(alpha);
     ali = cimag(alpha);
 
-    if (trans != TINYBLAS_NO_TRANS) {
+    if (trans != TINYBLAS_NONE) {
         /* A sign, not a branch. The flag is loop invariant, but a ternary in
          * the inner loop stops the vectorizer cold. */
         double sgn = cnj ? -1.0 : 1.0;
@@ -777,11 +777,11 @@ tinyblas_zhemv(enum tinyblas_uplo uplo, int32_t n, double complex alpha,
  *  lower one. After that there are only two loops, distinguished by direction.
  */
 void
-tinyblas_strmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_strmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float *restrict a, int32_t lda, float *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -823,11 +823,11 @@ tinyblas_strmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_dtrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_dtrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double *restrict a, int32_t lda, double *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -869,12 +869,12 @@ tinyblas_dtrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_ctrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ctrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float complex *restrict a, int32_t lda,
         float complex *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -923,12 +923,12 @@ tinyblas_ctrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_ztrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ztrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double complex *restrict a, int32_t lda,
         double complex *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -984,11 +984,11 @@ tinyblas_ztrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  *  result matches what the reference produces bit for bit more often.
  */
 void
-tinyblas_strsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_strsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float *restrict a, int32_t lda, float *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -1020,11 +1020,11 @@ tinyblas_strsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_dtrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_dtrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double *restrict a, int32_t lda, double *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -1056,12 +1056,12 @@ tinyblas_dtrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_ctrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ctrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float complex *restrict a, int32_t lda,
         float complex *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);
@@ -1106,12 +1106,12 @@ tinyblas_ctrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_ztrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ztrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double complex *restrict a, int32_t lda,
         double complex *restrict x, int32_t incx)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t rs = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t cs = notrans ? 1 : (ptrdiff_t)lda;
     int upper = notrans ? (uplo == TINYBLAS_UPPER) : (uplo != TINYBLAS_UPPER);

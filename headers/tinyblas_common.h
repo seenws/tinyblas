@@ -20,8 +20,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 // SOFTWARE.
 
-#ifndef TINYBLAS_COMMON_H_
-#define TINYBLAS_COMMON_H_
+#ifndef TINYBLAS_HEADERS_COMMON_H_
+#define TINYBLAS_HEADERS_COMMON_H_
 
 /* Conventions for levels 2 and 3, on top of the level 1 ones:
  *   - row-major only. lda/ldb/ldc are row strides; there is no layout argument
@@ -36,8 +36,8 @@
  */
 
 /* op(A): none, transpose, conjugate transpose */
-enum tinyblas_trans {
-    TINYBLAS_NO_TRANS   = 0,
+enum tinyblas_op {
+    TINYBLAS_NONE       = 0,
     TINYBLAS_TRANS      = 1,
     TINYBLAS_CONJ_TRANS = 2
 };
@@ -60,4 +60,4 @@ enum tinyblas_side {
     TINYBLAS_RIGHT = 1
 };
 
-#endif
+#endif // TINYBLAS_HEADERS_COMMON_H_

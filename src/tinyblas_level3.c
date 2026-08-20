@@ -105,8 +105,7 @@
  *  C is legal input here exactly as it is for gemm.
  */
 static void
-scale_tri_s(enum tinyblas_uplo uplo, int32_t n, float beta,
-        float *restrict c, int32_t ldc)
+scale_tri_s(enum tinyblas_uplo uplo, int32_t n, float beta, float *restrict c, int32_t ldc)
 {
     if (beta == 1.0f) return;
 
@@ -121,8 +120,7 @@ scale_tri_s(enum tinyblas_uplo uplo, int32_t n, float beta,
 }
 
 static void
-scale_tri_d(enum tinyblas_uplo uplo, int32_t n, double beta,
-        double *restrict c, int32_t ldc)
+scale_tri_d(enum tinyblas_uplo uplo, int32_t n, double beta, double *restrict c, int32_t ldc)
 {
     if (beta == 1.0) return;
 
@@ -140,8 +138,7 @@ scale_tri_d(enum tinyblas_uplo uplo, int32_t n, double beta,
  *  Mirror a stored triangle into a full dense square
  */
 static void
-expand_sym_s(enum tinyblas_uplo uplo, int32_t n,
-        const float *restrict a, int32_t lda, float *restrict out)
+expand_sym_s(enum tinyblas_uplo uplo, int32_t n, const float *restrict a, int32_t lda, float *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
@@ -155,8 +152,7 @@ expand_sym_s(enum tinyblas_uplo uplo, int32_t n,
 }
 
 static void
-expand_sym_d(enum tinyblas_uplo uplo, int32_t n,
-        const double *restrict a, int32_t lda, double *restrict out)
+expand_sym_d(enum tinyblas_uplo uplo, int32_t n, const double *restrict a, int32_t lda, double *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
@@ -176,14 +172,14 @@ expand_sym_d(enum tinyblas_uplo uplo, int32_t n,
  *  whatever happens to be stored on the diagonal.
  */
 static void
-expand_tri_s(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+expand_tri_s(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float *restrict a, int32_t lda, float *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             float v = 0.0f;
 
@@ -196,14 +192,14 @@ expand_tri_s(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-expand_tri_d(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+expand_tri_d(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double *restrict a, int32_t lda, double *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             double v = 0.0;
 
@@ -227,7 +223,7 @@ static void
 rk_blocked_d(enum tinyblas_uplo uplo, int32_t n, int32_t k, double alpha,
         const double *restrict a, int32_t lda, ptrdiff_t astep,
         const double *restrict b, int32_t ldb, ptrdiff_t bstep,
-        enum tinyblas_trans ta, enum tinyblas_trans tb,
+        enum tinyblas_op ta, enum tinyblas_op tb,
         double *restrict c, int32_t ldc)
 {
     double tmp[RK_NB * RK_NB];
@@ -267,7 +263,7 @@ static void
 rk_blocked_s(enum tinyblas_uplo uplo, int32_t n, int32_t k, float alpha,
         const float *restrict a, int32_t lda, ptrdiff_t astep,
         const float *restrict b, int32_t ldb, ptrdiff_t bstep,
-        enum tinyblas_trans ta, enum tinyblas_trans tb,
+        enum tinyblas_op ta, enum tinyblas_op tb,
         float *restrict c, int32_t ldc)
 {
     float tmp[RK_NB * RK_NB];
@@ -417,14 +413,14 @@ expand_sym_z(enum tinyblas_uplo uplo, int32_t n,
 }
 
 static void
-expand_tri_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+expand_tri_c(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const float complex *restrict a, int32_t lda, float complex *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             float complex v = 0.0f;
 
@@ -444,15 +440,15 @@ expand_tri_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-expand_tri_z(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+expand_tri_z(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t n,
         const double complex *restrict a, int32_t lda,
         double complex *restrict out)
 {
     for (int32_t i = 0; i < n; ++i) {
         for (int32_t j = 0; j < n; ++j) {
-            int32_t r = (trans == TINYBLAS_NO_TRANS) ? i : j;
-            int32_t c = (trans == TINYBLAS_NO_TRANS) ? j : i;
+            int32_t r = (trans == TINYBLAS_NONE) ? i : j;
+            int32_t c = (trans == TINYBLAS_NONE) ? j : i;
             int in = (uplo == TINYBLAS_UPPER) ? (c >= r) : (c <= r);
             double complex v = 0.0;
 
@@ -629,7 +625,7 @@ static void
 rk_blocked_c(enum tinyblas_uplo uplo, int32_t n, int32_t k, float complex alpha,
         const float complex *restrict a, int32_t lda, ptrdiff_t astep,
         const float complex *restrict b, int32_t ldb, ptrdiff_t bstep,
-        enum tinyblas_trans ta, enum tinyblas_trans tb,
+        enum tinyblas_op ta, enum tinyblas_op tb,
         float complex *restrict c, int32_t ldc)
 {
     float complex tmp[RK_NB * RK_NB];
@@ -667,7 +663,7 @@ static void
 rk_blocked_z(enum tinyblas_uplo uplo, int32_t n, int32_t k, double complex alpha,
         const double complex *restrict a, int32_t lda, ptrdiff_t astep,
         const double complex *restrict b, int32_t ldb, ptrdiff_t bstep,
-        enum tinyblas_trans ta, enum tinyblas_trans tb,
+        enum tinyblas_op ta, enum tinyblas_op tb,
         double complex *restrict c, int32_t ldc)
 {
     double complex tmp[RK_NB * RK_NB];
@@ -713,7 +709,7 @@ rk_blocked_z(enum tinyblas_uplo uplo, int32_t n, int32_t k, double complex alpha
  */
 static void
 tri_sweep_c(int solve, enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, const float complex *restrict a, int32_t lda,
         float complex *restrict b, int32_t ldb)
 {
@@ -726,8 +722,8 @@ tri_sweep_c(int solve, enum tinyblas_side side, enum tinyblas_uplo uplo,
     }
 
     {
-        enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                               ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+        enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                               ? TINYBLAS_TRANS : TINYBLAS_NONE;
         int cj = (trans == TINYBLAS_CONJ_TRANS);
 
         for (int32_t i = 0; i < m; ++i) {
@@ -745,7 +741,7 @@ tri_sweep_c(int solve, enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 static void
 tri_sweep_z(int solve, enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, const double complex *restrict a, int32_t lda,
         double complex *restrict b, int32_t ldb)
 {
@@ -758,8 +754,8 @@ tri_sweep_z(int solve, enum tinyblas_side side, enum tinyblas_uplo uplo,
     }
 
     {
-        enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                               ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+        enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                               ? TINYBLAS_TRANS : TINYBLAS_NONE;
         int cj = (trans == TINYBLAS_CONJ_TRANS);
 
         for (int32_t i = 0; i < m; ++i) {
@@ -817,10 +813,10 @@ symm_impl_c(enum tinyblas_side side, enum tinyblas_uplo uplo, int herm,
     expand_sym_c(uplo, na, a, lda, dense, herm);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_cgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_cgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, beta, c, ldc);
     else
-        tinyblas_cgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_cgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, beta, c, ldc);
 
     free(dense);
@@ -862,10 +858,10 @@ symm_impl_z(enum tinyblas_side side, enum tinyblas_uplo uplo, int herm,
     expand_sym_z(uplo, na, a, lda, dense, herm);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, beta, c, ldc);
     else
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, beta, c, ldc);
 
     free(dense);
@@ -879,16 +875,16 @@ symm_impl_z(enum tinyblas_side side, enum tinyblas_uplo uplo, int herm,
  *  as the real path does.
  */
 static void
-rk_impl_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+rk_impl_c(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int herm, int rank2, int32_t n, int32_t k, float complex alpha,
         const float complex *restrict a, int32_t lda,
         const float complex *restrict b, int32_t ldb,
         float complex beta, float complex *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
-    enum tinyblas_trans tc = herm ? TINYBLAS_CONJ_TRANS : TINYBLAS_TRANS;
-    enum tinyblas_trans t1 = notrans ? TINYBLAS_NO_TRANS : tc;
-    enum tinyblas_trans t2 = notrans ? tc : TINYBLAS_NO_TRANS;
+    int notrans = (trans == TINYBLAS_NONE);
+    enum tinyblas_op tc = herm ? TINYBLAS_CONJ_TRANS : TINYBLAS_TRANS;
+    enum tinyblas_op t1 = notrans ? TINYBLAS_NONE : tc;
+    enum tinyblas_op t2 = notrans ? tc : TINYBLAS_NONE;
     ptrdiff_t as = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t bs = notrans ? (ptrdiff_t)ldb : 1;
 
@@ -914,16 +910,16 @@ rk_impl_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-rk_impl_z(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+rk_impl_z(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int herm, int rank2, int32_t n, int32_t k, double complex alpha,
         const double complex *restrict a, int32_t lda,
         const double complex *restrict b, int32_t ldb,
         double complex beta, double complex *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
-    enum tinyblas_trans tc = herm ? TINYBLAS_CONJ_TRANS : TINYBLAS_TRANS;
-    enum tinyblas_trans t1 = notrans ? TINYBLAS_NO_TRANS : tc;
-    enum tinyblas_trans t2 = notrans ? tc : TINYBLAS_NO_TRANS;
+    int notrans = (trans == TINYBLAS_NONE);
+    enum tinyblas_op tc = herm ? TINYBLAS_CONJ_TRANS : TINYBLAS_TRANS;
+    enum tinyblas_op t1 = notrans ? TINYBLAS_NONE : tc;
+    enum tinyblas_op t2 = notrans ? tc : TINYBLAS_NONE;
     ptrdiff_t as = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t bs = notrans ? (ptrdiff_t)ldb : 1;
 
@@ -994,10 +990,10 @@ tinyblas_ssymm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_sym_s(uplo, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_sgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, beta, c, ldc);
     else
-        tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_sgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, beta, c, ldc);
 
     free(dense);
@@ -1047,10 +1043,10 @@ tinyblas_dsymm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_sym_d(uplo, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, beta, c, ldc);
     else
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, beta, c, ldc);
 
     free(dense);
@@ -1103,12 +1099,12 @@ tinyblas_zhemm(enum tinyblas_side side, enum tinyblas_uplo uplo,
  *  Symmetric rank-k update: ssyrk, dsyrk
  */
 void
-tinyblas_ssyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ssyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float alpha,
         const float *restrict a, int32_t lda,
         float beta, float *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t step = notrans ? (ptrdiff_t)lda : 1;
 
     if (n <= 0) return;
@@ -1122,18 +1118,18 @@ tinyblas_ssyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
     assert(a);
 
     rk_blocked_s(uplo, n, k, alpha, a, lda, step, a, lda, step,
-                 notrans ? TINYBLAS_NO_TRANS : TINYBLAS_TRANS,
-                 notrans ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS,
+                 notrans ? TINYBLAS_NONE : TINYBLAS_TRANS,
+                 notrans ? TINYBLAS_TRANS : TINYBLAS_NONE,
                  c, ldc);
 }
 
 void
-tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double alpha,
         const double *restrict a, int32_t lda,
         double beta, double *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t step = notrans ? (ptrdiff_t)lda : 1;
 
     if (n <= 0) return;
@@ -1147,8 +1143,8 @@ tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
     assert(a);
 
     rk_blocked_d(uplo, n, k, alpha, a, lda, step, a, lda, step,
-                 notrans ? TINYBLAS_NO_TRANS : TINYBLAS_TRANS,
-                 notrans ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS,
+                 notrans ? TINYBLAS_NONE : TINYBLAS_TRANS,
+                 notrans ? TINYBLAS_TRANS : TINYBLAS_NONE,
                  c, ldc);
 }
 
@@ -1158,7 +1154,7 @@ tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  *  herk takes real alpha and beta, which is exactly what keeps C hermitian.
  */
 void
-tinyblas_csyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_csyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float complex alpha,
         const float complex *restrict a, int32_t lda,
         float complex beta, float complex *restrict c, int32_t ldc)
@@ -1167,7 +1163,7 @@ tinyblas_csyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_zsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_zsyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double complex alpha,
         const double complex *restrict a, int32_t lda,
         double complex beta, double complex *restrict c, int32_t ldc)
@@ -1176,7 +1172,7 @@ tinyblas_zsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_cherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_cherk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float alpha,
         const float complex *restrict a, int32_t lda,
         float beta, float complex *restrict c, int32_t ldc)
@@ -1185,7 +1181,7 @@ tinyblas_cherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_zherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_zherk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double alpha,
         const double complex *restrict a, int32_t lda,
         double beta, double complex *restrict c, int32_t ldc)
@@ -1199,17 +1195,17 @@ tinyblas_zherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  *  Two rank-k passes, the second accumulating on top of the first.
  */
 void
-tinyblas_ssyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_ssyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float alpha,
         const float *restrict a, int32_t lda,
         const float *restrict b, int32_t ldb,
         float beta, float *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t as = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t bs = notrans ? (ptrdiff_t)ldb : 1;
-    enum tinyblas_trans t1 = notrans ? TINYBLAS_NO_TRANS : TINYBLAS_TRANS;
-    enum tinyblas_trans t2 = notrans ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+    enum tinyblas_op t1 = notrans ? TINYBLAS_NONE : TINYBLAS_TRANS;
+    enum tinyblas_op t2 = notrans ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
     if (n <= 0) return;
 
@@ -1226,17 +1222,17 @@ tinyblas_ssyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_dsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_dsyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double alpha,
         const double *restrict a, int32_t lda,
         const double *restrict b, int32_t ldb,
         double beta, double *restrict c, int32_t ldc)
 {
-    int notrans = (trans == TINYBLAS_NO_TRANS);
+    int notrans = (trans == TINYBLAS_NONE);
     ptrdiff_t as = notrans ? (ptrdiff_t)lda : 1;
     ptrdiff_t bs = notrans ? (ptrdiff_t)ldb : 1;
-    enum tinyblas_trans t1 = notrans ? TINYBLAS_NO_TRANS : TINYBLAS_TRANS;
-    enum tinyblas_trans t2 = notrans ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+    enum tinyblas_op t1 = notrans ? TINYBLAS_NONE : TINYBLAS_TRANS;
+    enum tinyblas_op t2 = notrans ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
     if (n <= 0) return;
 
@@ -1259,7 +1255,7 @@ tinyblas_dsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  *  passes add up to a hermitian result.
  */
 void
-tinyblas_csyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_csyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float complex alpha,
         const float complex *restrict a, int32_t lda,
         const float complex *restrict b, int32_t ldb,
@@ -1269,7 +1265,7 @@ tinyblas_csyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_zsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_zsyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double complex alpha,
         const double complex *restrict a, int32_t lda,
         const double complex *restrict b, int32_t ldb,
@@ -1279,7 +1275,7 @@ tinyblas_zsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_cher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_cher2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, float complex alpha,
         const float complex *restrict a, int32_t lda,
         const float complex *restrict b, int32_t ldb,
@@ -1289,7 +1285,7 @@ tinyblas_cher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 void
-tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         int32_t n, int32_t k, double complex alpha,
         const double complex *restrict a, int32_t lda,
         const double complex *restrict b, int32_t ldb,
@@ -1303,7 +1299,7 @@ tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  */
 void
 tinyblas_strmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, float alpha,
         const float *restrict a, int32_t lda, float *restrict b, int32_t ldb)
 {
@@ -1337,8 +1333,8 @@ tinyblas_strmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
             for (int32_t j = 0; j < n; ++j)
                 tinyblas_strmv(uplo, trans, diag, m, a, lda, b + j, ldb);
         } else {
-            enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                                   ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+            enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                                   ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
             for (int32_t i = 0; i < m; ++i)
                 tinyblas_strmv(uplo, fl, diag, n, a, lda,
@@ -1356,10 +1352,10 @@ tinyblas_strmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_tri_s(uplo, trans, diag, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_sgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, 0.0f, tmp, n);
     else
-        tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_sgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, 0.0f, tmp, n);
 
     for (int32_t i = 0; i < m; ++i)
@@ -1372,7 +1368,7 @@ tinyblas_strmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 void
 tinyblas_dtrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double alpha,
         const double *restrict a, int32_t lda, double *restrict b, int32_t ldb)
 {
@@ -1404,8 +1400,8 @@ tinyblas_dtrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
             for (int32_t j = 0; j < n; ++j)
                 tinyblas_dtrmv(uplo, trans, diag, m, a, lda, b + j, ldb);
         } else {
-            enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                                   ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+            enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                                   ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
             for (int32_t i = 0; i < m; ++i)
                 tinyblas_dtrmv(uplo, fl, diag, n, a, lda,
@@ -1423,10 +1419,10 @@ tinyblas_dtrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_tri_d(uplo, trans, diag, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, 0.0, tmp, n);
     else
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, 0.0, tmp, n);
 
     for (int32_t i = 0; i < m; ++i)
@@ -1442,7 +1438,7 @@ tinyblas_dtrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
  */
 void
 tinyblas_ctrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, float complex alpha,
         const float complex *restrict a, int32_t lda,
         float complex *restrict b, int32_t ldb)
@@ -1478,10 +1474,10 @@ tinyblas_ctrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_tri_c(uplo, trans, diag, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_cgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_cgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, 0.0f, tmp, n);
     else
-        tinyblas_cgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_cgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, 0.0f, tmp, n);
 
     for (int32_t i = 0; i < m; ++i)
@@ -1494,7 +1490,7 @@ tinyblas_ctrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 void
 tinyblas_ztrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double complex alpha,
         const double complex *restrict a, int32_t lda,
         double complex *restrict b, int32_t ldb)
@@ -1530,10 +1526,10 @@ tinyblas_ztrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     expand_tri_z(uplo, trans, diag, na, a, lda, dense);
 
     if (side == TINYBLAS_LEFT)
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, m,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, m,
                        alpha, dense, na, b, ldb, 0.0, tmp, n);
     else
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, m, n, n,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, m, n, n,
                        alpha, b, ldb, dense, na, 0.0, tmp, n);
 
     for (int32_t i = 0; i < m; ++i)
@@ -1562,12 +1558,12 @@ tinyblas_ztrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
  *  wants a transposed scratch copy to be worth writing. Only if a profile asks.
  */
 static void
-trsm_left_s(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+trsm_left_s(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t m, int32_t n,
         const float *restrict a, int32_t lda,
         float *restrict b, int32_t ldb)
 {
-    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NO_TRANS);
+    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NONE);
     int32_t nblk = (m + TRSM_MB - 1) / TRSM_MB;
     float dblk[TRSM_MB * TRSM_MB];
 
@@ -1579,11 +1575,11 @@ trsm_left_s(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 
         /* every row already solved, subtracted in one gemm */
         if (kk > 0) {
-            const float *ao = (trans == TINYBLAS_NO_TRANS)
+            const float *ao = (trans == TINYBLAS_NONE)
                            ? a + (ptrdiff_t)ib * lda + js
                            : a + (ptrdiff_t)js * lda + ib;
 
-            tinyblas_sgemm(trans, TINYBLAS_NO_TRANS, mb, n, kk, -1.0f,
+            tinyblas_sgemm(trans, TINYBLAS_NONE, mb, n, kk, -1.0f,
                            ao, lda, b + (ptrdiff_t)js * ldb, ldb,
                            1.0f, b + (ptrdiff_t)ib * ldb, ldb);
         }
@@ -1613,12 +1609,12 @@ trsm_left_s(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-trsm_left_d(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+trsm_left_d(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t m, int32_t n,
         const double *restrict a, int32_t lda,
         double *restrict b, int32_t ldb)
 {
-    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NO_TRANS);
+    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NONE);
     int32_t nblk = (m + TRSM_MB - 1) / TRSM_MB;
     double dblk[TRSM_MB * TRSM_MB];
 
@@ -1630,11 +1626,11 @@ trsm_left_d(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 
         /* every row already solved, subtracted in one gemm */
         if (kk > 0) {
-            const double *ao = (trans == TINYBLAS_NO_TRANS)
+            const double *ao = (trans == TINYBLAS_NONE)
                            ? a + (ptrdiff_t)ib * lda + js
                            : a + (ptrdiff_t)js * lda + ib;
 
-            tinyblas_dgemm(trans, TINYBLAS_NO_TRANS, mb, n, kk, -1.0,
+            tinyblas_dgemm(trans, TINYBLAS_NONE, mb, n, kk, -1.0,
                            ao, lda, b + (ptrdiff_t)js * ldb, ldb,
                            1.0, b + (ptrdiff_t)ib * ldb, ldb);
         }
@@ -1664,12 +1660,12 @@ trsm_left_d(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-trsm_left_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+trsm_left_c(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t m, int32_t n,
         const float complex *restrict a, int32_t lda,
         float complex *restrict b, int32_t ldb)
 {
-    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NO_TRANS);
+    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NONE);
     int32_t nblk = (m + TRSM_MB - 1) / TRSM_MB;
     float complex dblk[TRSM_MB * TRSM_MB];
 
@@ -1680,11 +1676,11 @@ trsm_left_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
         int32_t kk = lower ? ib : m - (ib + mb);    /* how many are solved */
 
         if (kk > 0) {
-            const float complex *ao = (trans == TINYBLAS_NO_TRANS)
+            const float complex *ao = (trans == TINYBLAS_NONE)
                            ? a + (ptrdiff_t)ib * lda + js
                            : a + (ptrdiff_t)js * lda + ib;
 
-            tinyblas_cgemm(trans, TINYBLAS_NO_TRANS, mb, n, kk, -1.0f,
+            tinyblas_cgemm(trans, TINYBLAS_NONE, mb, n, kk, -1.0f,
                            ao, lda, b + (ptrdiff_t)js * ldb, ldb,
                            1.0f, b + (ptrdiff_t)ib * ldb, ldb);
         }
@@ -1731,12 +1727,12 @@ trsm_left_c(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 }
 
 static void
-trsm_left_z(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+trsm_left_z(enum tinyblas_uplo uplo, enum tinyblas_op trans,
         enum tinyblas_diag diag, int32_t m, int32_t n,
         const double complex *restrict a, int32_t lda,
         double complex *restrict b, int32_t ldb)
 {
-    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NO_TRANS);
+    int lower = (uplo == TINYBLAS_LOWER) == (trans == TINYBLAS_NONE);
     int32_t nblk = (m + TRSM_MB - 1) / TRSM_MB;
     double complex dblk[TRSM_MB * TRSM_MB];
 
@@ -1747,11 +1743,11 @@ trsm_left_z(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
         int32_t kk = lower ? ib : m - (ib + mb);    /* how many are solved */
 
         if (kk > 0) {
-            const double complex *ao = (trans == TINYBLAS_NO_TRANS)
+            const double complex *ao = (trans == TINYBLAS_NONE)
                            ? a + (ptrdiff_t)ib * lda + js
                            : a + (ptrdiff_t)js * lda + ib;
 
-            tinyblas_zgemm(trans, TINYBLAS_NO_TRANS, mb, n, kk, -1.0,
+            tinyblas_zgemm(trans, TINYBLAS_NONE, mb, n, kk, -1.0,
                            ao, lda, b + (ptrdiff_t)js * ldb, ldb,
                            1.0, b + (ptrdiff_t)ib * ldb, ldb);
         }
@@ -1806,7 +1802,7 @@ trsm_left_z(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
  */
 void
 tinyblas_strsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, float alpha,
         const float *restrict a, int32_t lda, float *restrict b, int32_t ldb)
 {
@@ -1836,8 +1832,8 @@ tinyblas_strsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     }
 
     {
-        enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                               ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+        enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                               ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
         for (int32_t i = 0; i < m; ++i)
             tinyblas_strsv(uplo, fl, diag, n, a, lda,
@@ -1847,7 +1843,7 @@ tinyblas_strsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 void
 tinyblas_dtrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double alpha,
         const double *restrict a, int32_t lda, double *restrict b, int32_t ldb)
 {
@@ -1877,8 +1873,8 @@ tinyblas_dtrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
     }
 
     {
-        enum tinyblas_trans fl = (trans == TINYBLAS_NO_TRANS)
-                               ? TINYBLAS_TRANS : TINYBLAS_NO_TRANS;
+        enum tinyblas_op fl = (trans == TINYBLAS_NONE)
+                               ? TINYBLAS_TRANS : TINYBLAS_NONE;
 
         for (int32_t i = 0; i < m; ++i)
             tinyblas_dtrsv(uplo, fl, diag, n, a, lda,
@@ -1894,7 +1890,7 @@ tinyblas_dtrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
  */
 void
 tinyblas_ctrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, float complex alpha,
         const float complex *restrict a, int32_t lda,
         float complex *restrict b, int32_t ldb)
@@ -1921,7 +1917,7 @@ tinyblas_ctrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 void
 tinyblas_ztrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-        enum tinyblas_trans trans, enum tinyblas_diag diag,
+        enum tinyblas_op trans, enum tinyblas_diag diag,
         int32_t m, int32_t n, double complex alpha,
         const double complex *restrict a, int32_t lda,
         double complex *restrict b, int32_t ldb)

@@ -36,7 +36,7 @@
  */
 
 /* C <- alpha * op(A) * op(B) + beta * C */
-void tinyblas_sgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+void tinyblas_sgemm(enum tinyblas_op transa, enum tinyblas_op transb,
                     int32_t m, int32_t n, int32_t k,
                     float alpha,
                     const float *restrict a, int32_t lda,
@@ -44,7 +44,7 @@ void tinyblas_sgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
                     float beta,
                     float *restrict c, int32_t ldc);
 
-void tinyblas_dgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+void tinyblas_dgemm(enum tinyblas_op transa, enum tinyblas_op transb,
                     int32_t m, int32_t n, int32_t k,
                     double alpha,
                     const double *restrict a, int32_t lda,
@@ -52,7 +52,7 @@ void tinyblas_dgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
                     double beta,
                     double *restrict c, int32_t ldc);
 
-void tinyblas_cgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+void tinyblas_cgemm(enum tinyblas_op transa, enum tinyblas_op transb,
                     int32_t m, int32_t n, int32_t k,
                     float complex alpha,
                     const float complex *restrict a, int32_t lda,
@@ -60,7 +60,7 @@ void tinyblas_cgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
                     float complex beta,
                     float complex *restrict c, int32_t ldc);
 
-void tinyblas_zgemm(enum tinyblas_trans transa, enum tinyblas_trans transb,
+void tinyblas_zgemm(enum tinyblas_op transa, enum tinyblas_op transb,
                     int32_t m, int32_t n, int32_t k,
                     double complex alpha,
                     const double complex *restrict a, int32_t lda,
@@ -109,71 +109,71 @@ void tinyblas_zhemm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 
 /* C <- alpha * A * A^T + beta * C, only the uplo triangle of C is referenced.
  * trans = NO_TRANS makes A n by k; otherwise A is k by n and it is A^T * A. */
-void tinyblas_ssyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ssyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, float alpha,
                     const float *restrict a, int32_t lda,
                     float beta, float *restrict c, int32_t ldc);
 
-void tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_dsyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, double alpha,
                     const double *restrict a, int32_t lda,
                     double beta, double *restrict c, int32_t ldc);
 
-void tinyblas_csyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_csyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, float complex alpha,
                     const float complex *restrict a, int32_t lda,
                     float complex beta, float complex *restrict c, int32_t ldc);
 
-void tinyblas_zsyrk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_zsyrk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, double complex alpha,
                     const double complex *restrict a, int32_t lda,
                     double complex beta, double complex *restrict c, int32_t ldc);
 
 /* C <- alpha * A * A^H + beta * C, hermitian. alpha and beta are real, which
  * is what keeps C hermitian. */
-void tinyblas_cherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_cherk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, float alpha,
                     const float complex *restrict a, int32_t lda,
                     float beta, float complex *restrict c, int32_t ldc);
 
-void tinyblas_zherk(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_zherk(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     int32_t n, int32_t k, double alpha,
                     const double complex *restrict a, int32_t lda,
                     double beta, double complex *restrict c, int32_t ldc);
 
 /* C <- alpha * A * B^T + alpha * B * A^T + beta * C */
-void tinyblas_ssyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ssyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, float alpha,
                      const float *restrict a, int32_t lda,
                      const float *restrict b, int32_t ldb,
                      float beta, float *restrict c, int32_t ldc);
 
-void tinyblas_dsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_dsyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, double alpha,
                      const double *restrict a, int32_t lda,
                      const double *restrict b, int32_t ldb,
                      double beta, double *restrict c, int32_t ldc);
 
-void tinyblas_csyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_csyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, float complex alpha,
                      const float complex *restrict a, int32_t lda,
                      const float complex *restrict b, int32_t ldb,
                      float complex beta, float complex *restrict c, int32_t ldc);
 
-void tinyblas_zsyr2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_zsyr2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, double complex alpha,
                      const double complex *restrict a, int32_t lda,
                      const double complex *restrict b, int32_t ldb,
                      double complex beta, double complex *restrict c, int32_t ldc);
 
 /* C <- alpha * A * B^H + conj(alpha) * B * A^H + beta * C, beta real */
-void tinyblas_cher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_cher2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, float complex alpha,
                      const float complex *restrict a, int32_t lda,
                      const float complex *restrict b, int32_t ldb,
                      float beta, float complex *restrict c, int32_t ldc);
 
-void tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                      int32_t n, int32_t k, double complex alpha,
                      const double complex *restrict a, int32_t lda,
                      const double complex *restrict b, int32_t ldb,
@@ -181,25 +181,25 @@ void tinyblas_zher2k(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
 
 /* B <- alpha * op(A) * B, or B * op(A) with side = RIGHT, A triangular */
 void tinyblas_strmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, float alpha,
                     const float *restrict a, int32_t lda,
                     float *restrict b, int32_t ldb);
 
 void tinyblas_dtrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, double alpha,
                     const double *restrict a, int32_t lda,
                     double *restrict b, int32_t ldb);
 
 void tinyblas_ctrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, float complex alpha,
                     const float complex *restrict a, int32_t lda,
                     float complex *restrict b, int32_t ldb);
 
 void tinyblas_ztrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, double complex alpha,
                     const double complex *restrict a, int32_t lda,
                     double complex *restrict b, int32_t ldb);
@@ -207,25 +207,25 @@ void tinyblas_ztrmm(enum tinyblas_side side, enum tinyblas_uplo uplo,
 /* solve op(A) * X = alpha * B, or X * op(A) = alpha * B with side = RIGHT,
  * writing X over B. A is triangular and assumed nonsingular. */
 void tinyblas_strsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, float alpha,
                     const float *restrict a, int32_t lda,
                     float *restrict b, int32_t ldb);
 
 void tinyblas_dtrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, double alpha,
                     const double *restrict a, int32_t lda,
                     double *restrict b, int32_t ldb);
 
 void tinyblas_ctrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, float complex alpha,
                     const float complex *restrict a, int32_t lda,
                     float complex *restrict b, int32_t ldb);
 
 void tinyblas_ztrsm(enum tinyblas_side side, enum tinyblas_uplo uplo,
-                    enum tinyblas_trans trans, enum tinyblas_diag diag,
+                    enum tinyblas_op trans, enum tinyblas_diag diag,
                     int32_t m, int32_t n, double complex alpha,
                     const double complex *restrict a, int32_t lda,
                     double complex *restrict b, int32_t ldb);

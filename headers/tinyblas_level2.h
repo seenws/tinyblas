@@ -39,23 +39,23 @@
  */
 
 /* y <- alpha * op(A) * x + beta * y, A is m by n */
-void tinyblas_sgemv(enum tinyblas_trans trans, int32_t m, int32_t n, float alpha,
+void tinyblas_sgemv(enum tinyblas_op trans, int32_t m, int32_t n, float alpha,
                     const float *restrict a, int32_t lda,
                     const float *restrict x, int32_t incx,
                     float beta, float *restrict y, int32_t incy);
 
-void tinyblas_dgemv(enum tinyblas_trans trans, int32_t m, int32_t n, double alpha,
+void tinyblas_dgemv(enum tinyblas_op trans, int32_t m, int32_t n, double alpha,
                     const double *restrict a, int32_t lda,
                     const double *restrict x, int32_t incx,
                     double beta, double *restrict y, int32_t incy);
 
-void tinyblas_cgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
+void tinyblas_cgemv(enum tinyblas_op trans, int32_t m, int32_t n,
                     float complex alpha,
                     const float complex *restrict a, int32_t lda,
                     const float complex *restrict x, int32_t incx,
                     float complex beta, float complex *restrict y, int32_t incy);
 
-void tinyblas_zgemv(enum tinyblas_trans trans, int32_t m, int32_t n,
+void tinyblas_zgemv(enum tinyblas_op trans, int32_t m, int32_t n,
                     double complex alpha,
                     const double complex *restrict a, int32_t lda,
                     const double complex *restrict x, int32_t incx,
@@ -84,43 +84,43 @@ void tinyblas_zhemv(enum tinyblas_uplo uplo, int32_t n, double complex alpha,
                     double complex beta, double complex *restrict y, int32_t incy);
 
 /* x <- op(A) * x, A triangular */
-void tinyblas_strmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_strmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const float *restrict a, int32_t lda,
                     float *restrict x, int32_t incx);
 
-void tinyblas_dtrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_dtrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const double *restrict a, int32_t lda,
                     double *restrict x, int32_t incx);
 
-void tinyblas_ctrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ctrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const float complex *restrict a, int32_t lda,
                     float complex *restrict x, int32_t incx);
 
-void tinyblas_ztrmv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ztrmv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const double complex *restrict a, int32_t lda,
                     double complex *restrict x, int32_t incx);
 
 /* solve op(A) * x = b in place, A triangular and assumed nonsingular */
-void tinyblas_strsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_strsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const float *restrict a, int32_t lda,
                     float *restrict x, int32_t incx);
 
-void tinyblas_dtrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_dtrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const double *restrict a, int32_t lda,
                     double *restrict x, int32_t incx);
 
-void tinyblas_ctrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ctrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const float complex *restrict a, int32_t lda,
                     float complex *restrict x, int32_t incx);
 
-void tinyblas_ztrsv(enum tinyblas_uplo uplo, enum tinyblas_trans trans,
+void tinyblas_ztrsv(enum tinyblas_uplo uplo, enum tinyblas_op trans,
                     enum tinyblas_diag diag, int32_t n,
                     const double complex *restrict a, int32_t lda,
                     double complex *restrict x, int32_t incx);
