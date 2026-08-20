@@ -129,22 +129,22 @@ call_tb(char t, const struct prob *p, double complex al, double complex be)
 {
     switch (t) {
     case 's':
-        tinyblas_sgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, p->m, p->n, p->k,
+        tinyblas_sgemm(TINYBLAS_NONE, TINYBLAS_NONE, p->m, p->n, p->k,
                        (float)creal(al), p->a, p->lda, p->b, p->ldb,
                        (float)creal(be), p->c, p->ldc);
         break;
     case 'd':
-        tinyblas_dgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, p->m, p->n, p->k,
+        tinyblas_dgemm(TINYBLAS_NONE, TINYBLAS_NONE, p->m, p->n, p->k,
                        creal(al), p->a, p->lda, p->b, p->ldb,
                        creal(be), p->c, p->ldc);
         break;
     case 'c':
-        tinyblas_cgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, p->m, p->n, p->k,
+        tinyblas_cgemm(TINYBLAS_NONE, TINYBLAS_NONE, p->m, p->n, p->k,
                        (float complex)al, p->a, p->lda, p->b, p->ldb,
                        (float complex)be, p->c, p->ldc);
         break;
     default:
-        tinyblas_zgemm(TINYBLAS_NO_TRANS, TINYBLAS_NO_TRANS, p->m, p->n, p->k,
+        tinyblas_zgemm(TINYBLAS_NONE, TINYBLAS_NONE, p->m, p->n, p->k,
                        al, p->a, p->lda, p->b, p->ldb,
                        be, p->c, p->ldc);
         break;
@@ -260,19 +260,19 @@ call_tb_gemv(char t, const struct prob *p, double complex al, double complex be)
 {
     switch (t) {
     case 's':
-        tinyblas_sgemv(TINYBLAS_NO_TRANS, p->m, p->n, (float)creal(al),
+        tinyblas_sgemv(TINYBLAS_NONE, p->m, p->n, (float)creal(al),
                        p->a, p->lda, p->b, 1, (float)creal(be), p->c, 1);
         break;
     case 'd':
-        tinyblas_dgemv(TINYBLAS_NO_TRANS, p->m, p->n, creal(al),
+        tinyblas_dgemv(TINYBLAS_NONE, p->m, p->n, creal(al),
                        p->a, p->lda, p->b, 1, creal(be), p->c, 1);
         break;
     case 'c':
-        tinyblas_cgemv(TINYBLAS_NO_TRANS, p->m, p->n, (float complex)al,
+        tinyblas_cgemv(TINYBLAS_NONE, p->m, p->n, (float complex)al,
                        p->a, p->lda, p->b, 1, (float complex)be, p->c, 1);
         break;
     default:
-        tinyblas_zgemv(TINYBLAS_NO_TRANS, p->m, p->n, al,
+        tinyblas_zgemv(TINYBLAS_NONE, p->m, p->n, al,
                        p->a, p->lda, p->b, 1, be, p->c, 1);
         break;
     }
@@ -614,16 +614,16 @@ call_l3_tb(char t, const char *name, int32_t s,
             tinyblas_dsymm(TINYBLAS_LEFT, TINYBLAS_UPPER, s, s, al,
                            a, s, b, s, be, c, s);
         else if (!strcmp(name, "syrk"))
-            tinyblas_dsyrk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+            tinyblas_dsyrk(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                            a, s, be, c, s);
         else if (!strcmp(name, "syr2k"))
-            tinyblas_dsyr2k(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+            tinyblas_dsyr2k(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                             a, s, b, s, be, c, s);
         else if (!strcmp(name, "trmm"))
-            tinyblas_dtrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+            tinyblas_dtrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                            TINYBLAS_NON_UNIT, s, s, al, a, s, b, s);
         else
-            tinyblas_dtrsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+            tinyblas_dtrsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                            TINYBLAS_NON_UNIT, s, s, al, a, s, b, s);
 
         return;
@@ -636,22 +636,22 @@ call_l3_tb(char t, const char *name, int32_t s,
         tinyblas_zhemm(TINYBLAS_LEFT, TINYBLAS_UPPER, s, s, al,
                        a, s, b, s, be, c, s);
     else if (!strcmp(name, "syrk"))
-        tinyblas_zsyrk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+        tinyblas_zsyrk(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                        a, s, be, c, s);
     else if (!strcmp(name, "herk"))
-        tinyblas_zherk(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+        tinyblas_zherk(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                        a, s, be, c, s);
     else if (!strcmp(name, "syr2k"))
-        tinyblas_zsyr2k(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+        tinyblas_zsyr2k(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                         a, s, b, s, be, c, s);
     else if (!strcmp(name, "her2k"))
-        tinyblas_zher2k(TINYBLAS_UPPER, TINYBLAS_NO_TRANS, s, s, al,
+        tinyblas_zher2k(TINYBLAS_UPPER, TINYBLAS_NONE, s, s, al,
                         a, s, b, s, be, c, s);
     else if (!strcmp(name, "trmm"))
-        tinyblas_ztrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+        tinyblas_ztrmm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                        TINYBLAS_NON_UNIT, s, s, al, a, s, b, s);
     else
-        tinyblas_ztrsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NO_TRANS,
+        tinyblas_ztrsm(TINYBLAS_LEFT, TINYBLAS_UPPER, TINYBLAS_NONE,
                        TINYBLAS_NON_UNIT, s, s, al, a, s, b, s);
 }
 
